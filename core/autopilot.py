@@ -255,7 +255,8 @@ class Autopilot:
             planned += plan_stockpiles(state, d, self._last_expand, planned_jobs)
         if m.blueprints:
             planned += plan_blueprints(state, d, alarms)
-        return planned
+        skip = getattr(self.bridge, "unsupported", frozenset())
+        return [p for p in planned if p.key not in skip]
 
     def run_tick(self, state: FortressState | None = None) -> TickResult:
         state = state or self.bridge.get_state()
@@ -284,9 +285,10 @@ class Autopilot:
                 and not state.paused):
             reason = "; ".join(a.message() for a in result.notifications)
             pause = PlannedAction("emergency", "act.pause", {"reason": reason}, lambda b: b.set_paused(True))
-            if self.dry_run:
+            if getattr(self.bridge, "read_only", False):
                 result.actions.append(ActionRecord(now, state.tick, "emergency", "act.pause", pause.params, "dry_run"))
             else:
+                # The safety pause is harmless, so it runs even in dry-run: it's the user's baseline.
                 rec = self._execute(pause, state, now)
                 result.actions.append(rec)
                 result.paused_by_autopilot = rec.status == "ok"

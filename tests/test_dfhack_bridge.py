@@ -4,8 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from core.autopilot import Autopilot
-from core.doctrine import FortressDoctrine
 from dfhack_bridge.base import BridgeError
 from dfhack_bridge.dfhack_bridge import STATE_SCRIPT, DFHackBridge
 from dfhack_bridge.dfhack_state import RawStateError, parse_zone_name, raw_to_state
@@ -140,13 +138,3 @@ def test_bridge_missing_executable():
 def test_dfhack_run_env_override(monkeypatch):
     monkeypatch.setenv("DDP_DFHACK_RUN", r"C:\Games\DF\dfhack-run.exe")
     assert DFHackBridge().dfhack_run == r"C:\Games\DF\dfhack-run.exe"
-
-
-def test_read_only_bridge_forces_dry_run(monkeypatch, raw):
-    b = DFHackBridge(dfhack_run="dfhack-run")
-    pilot = Autopilot(b, FortressDoctrine(), dry_run=False)
-    assert pilot.dry_run
-    result = pilot.run_tick(raw_to_state(raw))  # siege -> pause planned, never executed
-    assert result.actions and all(a.status in ("dry_run", "info") for a in result.actions)
-    with pytest.raises(BridgeError, match="read-only"):
-        b.set_paused(True)

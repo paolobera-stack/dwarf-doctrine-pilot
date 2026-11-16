@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
         read_only = getattr(self.bridge, "read_only", False)
         self.dry_btn.setChecked(dry_run or read_only)
         self.dry_btn.setEnabled(not read_only)
-        self.dry_btn.toggled.connect(lambda v: self.worker.set_flags(dry_run=v))
+        self.dry_btn.toggled.connect(self._on_dry_toggled)
         self.pause_btn = QPushButton()
         self.pause_btn.setObjectName("pause_toggle")
         self.pause_btn.clicked.connect(self._toggle_pause)
@@ -162,6 +162,18 @@ class MainWindow(QMainWindow):
                        self.dwarf_table]
 
     # ------------------------------------------------------------------ autopilot ticks
+    def _on_dry_toggled(self, dry_run: bool) -> None:
+        if not dry_run and self.bridge.name == "dfhack":
+            answer = QMessageBox.warning(self, tr("live.title"), tr("live.body"),
+                                         QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                                         QMessageBox.StandardButton.Cancel)
+            if answer != QMessageBox.StandardButton.Ok:
+                self.dry_btn.blockSignals(True)
+                self.dry_btn.setChecked(True)
+                self.dry_btn.blockSignals(False)
+                return
+        self.worker.set_flags(dry_run=dry_run)
+
     def on_tick(self, result: TickResult) -> None:
         self.state = result.state
         self.refresh_tables()
