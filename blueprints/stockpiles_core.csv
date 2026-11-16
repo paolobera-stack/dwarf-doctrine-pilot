@@ -1,0 +1,14 @@
+#dig label(dig) start(1;1) 10x6 storage hall
+d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d
+#place label(stockpiles) start(1;1) Food, furniture and stone stockpiles
+f(5x3),`,`,`,`,u(5x3),`,`,`,`
+`,`,`,`,`,`,`,`,`,`
+`,`,`,`,`,`,`,`,`,`
+s(10x3),`,`,`,`,`,`,`,`,`
+`,`,`,`,`,`,`,`,`,`
+`,`,`,`,`,`,`,`,`,`

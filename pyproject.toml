@@ -1,0 +1,29 @@
+[project]
+name = "dwarf-doctrine-pilot"
+version = "0.1.0"
+description = "Human-in-the-loop co-pilot & autopilot for Dwarf Fortress (DFHack) driven by a shared Fortress Doctrine"
+requires-python = ">=3.11"
+dependencies = [
+    "PySide6>=6.6",
+    "pydantic>=2.6",
+    "google-genai>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-qt>=4.4"]
+
+[project.scripts]
+ddp = "main:main"
+ddp-mock-server = "dfhack_bridge.mock_server:main"
+
+[tool.setuptools]
+packages = ["core", "dfhack_bridge", "ui", "blueprints"]
+py-modules = ["main"]
+
+[tool.setuptools.package-data]
+blueprints = ["*.json", "*.csv", "*.md"]
+dfhack_bridge = ["lua/*.lua"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
