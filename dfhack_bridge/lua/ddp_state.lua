@@ -202,13 +202,81 @@ function sections.workshops()
     state.workshops = out
 end
 
+-- One string per row of the zone rectangle: '#' solid, 'D' solid and designated for digging, '.' open.
+local function zone_tiles(z)
+    local rows = arr()
+    for y = z.y1, z.y2 do
+        local row = {}
+        for x = z.x1, z.x2 do
+            local tt = dfhack.maps.getTileType(x, y, z.z)
+            local shape = tt and df.tiletype.attrs[tt].shape
+            local solid = shape and df.tiletype_shape.attrs[shape].basic_shape == df.tiletype_shape_basic.Wall
+            local flags = solid and dfhack.maps.getTileFlags(x, y, z.z)
+            row[#row + 1] = not solid and '.' or (flags and flags.dig ~= df.tile_dig_designation.No and 'D' or '#')
+        end
+        rows[#rows + 1] = table.concat(row)
+    end
+    return rows
+end
+
+-- Buildings (not stockpiles/zones) overlapping the zone rectangle.
+local function zone_buildings(z)
+    local out = arr()
+    for _, b in ipairs(W.buildings.all) do
+        local t = b:getType()
+        if b.z == z.z and t ~= df.building_type.Stockpile and t ~= df.building_type.Civzone
+                and b.x1 <= z.x2 and b.x2 >= z.x1 and b.y1 <= z.y2 and b.y2 >= z.y1 then
+            out[#out + 1] = {id = b.id, type = enum_name(df.building_type, t), x = b.x1, y = b.y1,
+                             built = b:getBuildStage() >= b:getMaxBuildStage()}
+        end
+    end
+    return out
+end
+
 function sections.zones()
     local out = arr()
     for _, bld in ipairs(W.buildings.other.ACTIVITY_ZONE) do
         local name = utf(bld.name)
         if name:upper():sub(1, 3) == 'DDP' then
             out[#out + 1] = {id = bld.id, name = name, type = enum_name(df.civzone_type, bld.type),
-                             x1 = bld.x1, y1 = bld.y1, x2 = bld.x2, y2 = bld.y2, z = bld.z}
+                             x1 = bld.x1, y1 = bld.y1, x2 = bld.x2, y2 = bld.y2, z = bld.z,
+                             tiles = zone_tiles(bld), buildings = zone_buildings(bld)}
+        end
+    end
+    state.zones = out
+end
+
+-- Burrows named DDP* also count as zones: unlike activity zones they can be painted on undug rock.
+-- The zone is the bounding rectangle of the burrow's tiles on its topmost z-level.
+function sections.burrows()
+    local out = state.zones or arr()
+    for _, bur in ipairs(df.global.plotinfo.burrows.list) do
+        local name = utf(bur.name)
+        if name:upper():sub(1, 3) == 'DDP' then
+            local box
+            for _, block in ipairs(dfhack.burrows.listBlocks(bur)) do
+                local bp = block.map_pos
+                if not box or bp.z >= box.z then
+                    for dx = 0, 15 do
+                        for dy = 0, 15 do
+                            if dfhack.burrows.isAssignedBlockTile(bur, block, dx, dy) then
+                                local x, y = bp.x + dx, bp.y + dy
+                                if not box or bp.z > box.z then
+                                    box = {x1 = x, y1 = y, x2 = x, y2 = y, z = bp.z}
+                                else
+                                    box.x1, box.y1 = math.min(box.x1, x), math.min(box.y1, y)
+                                    box.x2, box.y2 = math.max(box.x2, x), math.max(box.y2, y)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            if box then
+                out[#out + 1] = {id = bur.id, name = name, type = 'Burrow',
+                                 x1 = box.x1, y1 = box.y1, x2 = box.x2, y2 = box.y2, z = box.z,
+                                 tiles = zone_tiles(box), buildings = zone_buildings(box)}
+            end
         end
     end
     state.zones = out
@@ -270,7 +338,7 @@ function sections.threats()
     state.threats = {invaders = invaders, great_dangers = great, dangers = danger, merchants = merchants}
 end
 
-local ORDER = {'meta', 'stocks', 'stockpiles', 'workshops', 'zones', 'orders', 'units', 'threats'}
+local ORDER = {'meta', 'stocks', 'stockpiles', 'workshops', 'zones', 'burrows', 'orders', 'units', 'threats'}
 for _, name in ipairs(ORDER) do
     local ok, err = pcall(sections[name])
     if not ok then state.errors[#state.errors + 1] = name .. ': ' .. tostring(err) end

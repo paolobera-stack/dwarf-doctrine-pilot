@@ -23,7 +23,16 @@ from pathlib import Path
 from typing import Any
 
 from dfhack_bridge.base import BridgeError, FortressBridge
-from dfhack_bridge.dfhack_state import ORDER_SPECS, WORKSHOP_NAMES, RawStateError, fortress_key, raw_to_state
+from blueprints import Section, load_catalog, load_sections
+from dfhack_bridge.dfhack_state import (
+    ORDER_SPECS,
+    WORKSHOP_NAMES,
+    RawStateError,
+    blueprint_job,
+    find_raw_zone,
+    fortress_key,
+    raw_to_state,
+)
 from dfhack_bridge.protocol import FortressState
 
 LUA_DIR = Path(__file__).resolve().parent / "lua"
@@ -79,16 +88,32 @@ class OrderLedger:
             self.path.write_text(json.dumps(self.data, indent=1), encoding="utf-8")
 
 
+class BlueprintLedger(OrderLedger):
+    """{fortress key: {queue id: {blueprint, zone_id, x, y, z, w, h, phase, progress}}} persisted as JSON."""
+
+    def entries(self, fort: str) -> dict[str, dict[str, Any]]:
+        return self.data.get(fort, {})
+
+    def put(self, fort: str, queue_id: str, entry: dict[str, Any]) -> None:
+        self.data.setdefault(fort, {})[queue_id] = entry
+        self._save()
+
+
 class DFHackBridge(FortressBridge):
     name = "dfhack"
-    unsupported = frozenset({"act.expand_stockpile", "act.enqueue_blueprint"})
+    unsupported = frozenset({"act.expand_stockpile"})
 
     def __init__(self, dfhack_run: str | None = None, blueprints_dir: Path | None = None,
-                 timeout: float = 10.0, ledger_path: Path | None = None):
+                 timeout: float = 10.0, ledger_path: Path | None = None,
+                 blueprint_ledger_path: Path | None = None):
         self.dfhack_run = find_dfhack_run(dfhack_run)
         self.blueprints_dir = blueprints_dir or Path(__file__).resolve().parent.parent / "blueprints"
         self.timeout = timeout
         self.ledger = OrderLedger(ledger_path)
+        if blueprint_ledger_path is None and ledger_path is not None:
+            blueprint_ledger_path = ledger_path.with_name("dfhack_blueprints.json")
+        self.bp_ledger = BlueprintLedger(blueprint_ledger_path)
+        self.catalog = load_catalog()
         self.last_raw: dict[str, Any] | None = None
         self.last_elapsed_ms: int = 0
 
@@ -151,7 +176,27 @@ class DFHackBridge(FortressBridge):
             entry = self.ledger.get(fort, o.id)
             if entry:
                 o.source = entry["source"]
+        self._track_blueprints(fort, raw, state)
         return state
+
+    def _sections(self, blueprint: str) -> list[Section]:
+        if blueprint not in self.catalog:
+            raise BridgeError(f"unknown blueprint {blueprint!r}")
+        return load_sections(blueprint, self.catalog)
+
+    def _track_blueprints(self, fort: str, raw: dict[str, Any], state: FortressState) -> None:
+        zones_ok = "zones" in raw
+        for queue_id, entry in self.bp_ledger.entries(fort).items():
+            zone = find_raw_zone(raw, entry["zone_id"]) if zones_ok else None
+            job = blueprint_job(queue_id, entry, zone, self._sections(entry["blueprint"]))
+            progress = round(job.progress, 3)
+            if (job.status == "done" and entry.get("phase") != "done") or progress != entry.get("progress"):
+                self.bp_ledger.put(fort, queue_id, {**entry, "progress": progress,
+                                                    "phase": "done" if job.status == "done" else entry["phase"]})
+            state.blueprints.append(job)
+            for z in state.zones:
+                if z.id == entry["zone_id"]:
+                    z.assigned = queue_id
 
     # --- actions ----------------------------------------------------------------
     def run_action(self, action: str, **params: Any) -> dict[str, Any]:
@@ -209,5 +254,52 @@ class DFHackBridge(FortressBridge):
     def expand_stockpile(self, stockpile_id: int, cells: int) -> None:
         raise BridgeError("expanding stockpiles is not supported on DFHack yet")
 
+    def _quickfort(self, mode: str, sections: list[Section], pos: dict[str, int]) -> dict[str, Any]:
+        stats: dict[str, Any] = {}
+        for sec in sections:
+            if sec.mode == mode and sec.cells:
+                res = self.run_action("apply_blueprint", mode=mode, pos=pos,
+                                      cells=[{"x": x, "y": y, "text": t} for x, y, t in sec.cells])
+                stats.update(res.get("stats") or {})
+        return stats
+
     def enqueue_blueprint(self, queue_id: str, blueprint: str, zone_id: str) -> None:
-        raise BridgeError("Quickfort blueprints are not supported on DFHack yet (Step 2C)")
+        """Dig phase: designate the blueprint's #dig section at the zone's top-left corner."""
+        raw = self.read_raw()
+        fort = fortress_key(raw)
+        if queue_id in self.bp_ledger.entries(fort):
+            raise BridgeError(f"blueprint {queue_id} already applied")
+        sections = self._sections(blueprint)
+        zone = find_raw_zone(raw, zone_id)
+        if zone is None:
+            raise BridgeError(f"zone {zone_id} not found: name a burrow 'DDP {zone_id} ...'")
+        for other in self.bp_ledger.entries(fort).values():
+            if other["zone_id"] == zone_id:
+                raise BridgeError(f"zone {zone_id} is already used by blueprint {other['blueprint']}")
+        w, h = self.catalog[blueprint]["size"]
+        zw, zh = zone["x2"] - zone["x1"] + 1, zone["y2"] - zone["y1"] + 1
+        if w > zw or h > zh:
+            raise BridgeError(f"blueprint {blueprint} ({w}x{h}) does not fit zone {zone_id} ({zw}x{zh})")
+        pos = {"x": zone["x1"], "y": zone["y1"], "z": zone["z"]}
+        stats = self._quickfort("dig", sections, pos)
+        invalid = (stats.get("dig_invalid_tiles") or {}).get("value", 0)
+        self.bp_ledger.put(fort, queue_id, {"blueprint": blueprint, "zone_id": zone_id, **pos, "w": w, "h": h,
+                                            "phase": "dig", "progress": 0.0, "invalid_tiles": invalid})
+
+    def advance_blueprint(self, queue_id: str) -> None:
+        """Build phase: place the #build/#place sections once digging is complete."""
+        fort = self._fort()
+        entry = self.bp_ledger.entries(fort).get(queue_id)
+        if entry is None or entry.get("phase") != "dig":
+            raise BridgeError(f"blueprint {queue_id} is not waiting to be built")
+        sections = self._sections(entry["blueprint"])
+        pos = {"x": entry["x"], "y": entry["y"], "z": entry["z"]}
+        stats = {**self._quickfort("build", sections, pos), **self._quickfort("place", sections, pos)}
+        expected = sum(len(s.cells) for s in sections if s.mode == "build")
+        self.bp_ledger.put(fort, queue_id, {**entry, "phase": "build" if expected else "done",
+                                            "progress": 0.5 if expected else 1.0})
+        placed = (stats.get("build_designated") or {}).get("value", 0)
+        if placed < expected:
+            problems = ", ".join(f"{v['label']}: {v['value']}" for v in stats.values()
+                                 if isinstance(v, dict) and v.get("value"))
+            raise BridgeError(f"blueprint {queue_id}: placed {placed}/{expected} buildings ({problems})")

@@ -1,4 +1,6 @@
-#dig label(dig) start(1;1) 11x5 workshop hall
+#dig label(dig) start(1;1) 11x7 workshop hall
+d,d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d,d
 d,d,d,d,d,d,d,d,d,d,d
 d,d,d,d,d,d,d,d,d,d,d
 d,d,d,d,d,d,d,d,d,d,d
@@ -10,3 +12,5 @@ wc(3x3),`,`,`,wm(3x3),`,`,`,wl(3x3),`,`
 `,`,`,`,`,`,`,`,`,`,`
 `,`,`,`,`,`,`,`,`,`,`
 wz(3x3),`,`,`,`,`,`,`,`,`,`
+`,`,`,`,`,`,`,`,`,`,`
+`,`,`,`,`,`,`,`,`,`,`

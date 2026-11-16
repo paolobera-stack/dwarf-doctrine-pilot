@@ -15,8 +15,10 @@ import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Literal
 
+from blueprints import load_catalog
 from core.alarms import Alarm, evaluate_alarms
 from core.doctrine import BlueprintQueueItem, FortressDoctrine
 from core.i18n import tr
@@ -125,6 +127,11 @@ def plan_stockpiles(state: FortressState, doctrine: FortressDoctrine, last_expan
     return out
 
 
+@lru_cache(maxsize=1)
+def _catalog() -> dict:
+    return load_catalog()
+
+
 def blueprint_readiness(item: BlueprintQueueItem, state: FortressState) -> tuple[str, list[str]]:
     """Return (status, unmet reasons) for a doctrine queue item against the live state.
 
@@ -137,6 +144,11 @@ def blueprint_readiness(item: BlueprintQueueItem, state: FortressState) -> tuple
     if zone is None:
         return "missing_zone", [item.zone_id]
     reasons: list[str] = []
+    spec = _catalog().get(item.blueprint)
+    if spec is None:
+        reasons.append(f"? {item.blueprint}")
+    elif spec["size"][0] > zone.w or spec["size"][1] > zone.h:
+        reasons.append(f"{spec['size'][0]}x{spec['size'][1]} > {zone.w}x{zone.h}")
     if zone.assigned and zone.assigned != item.id:
         reasons.append(f"{item.zone_id}→{zone.assigned}")
     pre = item.preconditions
@@ -155,16 +167,21 @@ def blueprint_readiness(item: BlueprintQueueItem, state: FortressState) -> tuple
 def plan_blueprints(state: FortressState, doctrine: FortressDoctrine, alarms: list[Alarm]) -> list[PlannedAction]:
     if any(a.level == "critical" for a in alarms):
         return []
-    active = [b for b in state.blueprints if b.status != "done"]
+    out = [PlannedAction("blueprints", "act.advance_blueprint", {"id": b.id, "zone": b.zone_id},
+                         lambda br, q=b.id: br.advance_blueprint(q))
+           for b in state.blueprints if b.awaiting_build]
+    # Only digging counts: furniture of a dug blueprint may need workshops from the next one.
+    active = [b for b in state.blueprints if b.status in ("queued", "digging")]
     if len(active) >= doctrine.limits.max_concurrent_blueprints:
-        return []
+        return out
     for item in sorted(doctrine.blueprint_queue, key=lambda i: -i.priority):
         status, _ = blueprint_readiness(item, state)
         if status == "planned":
             params = {"blueprint": item.blueprint, "zone": item.zone_id, "id": item.id}
-            return [PlannedAction("blueprints", "act.enqueue_blueprint", params,
-                                  lambda b, i=item: b.enqueue_blueprint(i.id, i.blueprint, i.zone_id))]
-    return []
+            out.append(PlannedAction("blueprints", "act.enqueue_blueprint", params,
+                                     lambda b, i=item: b.enqueue_blueprint(i.id, i.blueprint, i.zone_id)))
+            break
+    return out
 
 
 def plan_emergency(state: FortressState, doctrine: FortressDoctrine, alarms: list[Alarm]) -> list[PlannedAction]:

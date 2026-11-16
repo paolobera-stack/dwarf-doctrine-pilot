@@ -68,6 +68,24 @@ function actions.link_stockpile(p)
     return {}
 end
 
+-- p.cells: [{x, y, text}] 0-based offsets from p.pos (top-left corner, one z-level).
+function actions.apply_blueprint(p)
+    local grid = {}
+    for _, c in ipairs(p.cells) do
+        local x, y = math.floor(c.x), math.floor(c.y)
+        grid[y] = grid[y] or {}
+        grid[y][x] = c.text
+    end
+    local stats = reqscript('quickfort').apply_blueprint{
+        mode = p.mode, data = {[0] = grid},
+        pos = {x = math.floor(p.pos.x), y = math.floor(p.pos.y), z = math.floor(p.pos.z)},
+        dry_run = p.dry_run and true or false,
+    }
+    local out = {}
+    for name, st in pairs(stats or {}) do out[name] = {label = st.label, value = st.value} end
+    return {stats = out}
+end
+
 local result
 local ok, err = pcall(function()
     local payload = json.decode_file(payload_path)

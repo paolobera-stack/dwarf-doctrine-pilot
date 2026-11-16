@@ -20,7 +20,7 @@ STATUS_COLORS: dict[str, QColor] = {
     "ok": OK, "low": WARN, "critical": BAD, "excess": EXCESS, "untracked": NEUTRAL,
     "queued": NEUTRAL, "active": INFO, "done": OK, "cancelled": QColor("#555"),
     "autopilot": INFO, "user": NEUTRAL, "emergency": BAD,
-    "planned": QColor("#00695c"), "blocked": WARN, "digging": QColor("#6d4c41"), "building": INFO,
+    "planned": QColor("#00695c"), "blocked": WARN, "digging": QColor("#6d4c41"), "dug": QColor("#8d6e63"), "building": INFO,
     "missing_zone": BAD, "free": OK,
 }
 
