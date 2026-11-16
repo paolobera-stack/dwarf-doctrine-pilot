@@ -17,8 +17,12 @@ ddp = "main:main"
 ddp-mock-server = "dfhack_bridge.mock_server:main"
 
 [tool.setuptools]
-packages = ["core", "dfhack_bridge", "ui"]
+packages = ["core", "dfhack_bridge", "ui", "blueprints"]
 py-modules = ["main"]
+
+[tool.setuptools.package-data]
+blueprints = ["*.json", "*.csv", "*.md"]
+dfhack_bridge = ["lua/*.lua"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

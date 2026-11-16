@@ -24,12 +24,11 @@ import socketserver
 import threading
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
+from blueprints import load_catalog
 from dfhack_bridge.protocol import (
     DAYS_PER_YEAR,
-    EDIBLE_ITEMS,
     ITEM_CATEGORY,
     LABORS,
     BlueprintJob,
@@ -46,7 +45,6 @@ from dfhack_bridge.protocol import (
 
 log = logging.getLogger("mock_server")
 
-CATALOG_PATH = Path(__file__).resolve().parent.parent / "blueprints" / "catalog.json"
 
 
 @dataclass(frozen=True)
@@ -103,9 +101,6 @@ EVENT_TEXT = {
     "strange_mood": ("warning", "A dwarf is taken by a fey mood!", 8),
 }
 
-
-def load_catalog(path: Path = CATALOG_PATH) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 class FortressSim:
@@ -321,7 +316,7 @@ class FortressSim:
             elif job.status == "building" and builders:
                 mats = spec.get("build_materials", {})
                 total = sum(mats.values()) or 1
-                step = min(len(builders) * 2, total) / total
+                step = min(len(builders) * 2 / total, 1.0 - job.progress)
                 needed = {i: q * step for i, q in mats.items()}
                 if all(self.stocks.get(i, 0) >= q for i, q in needed.items()):
                     for i, q in needed.items():

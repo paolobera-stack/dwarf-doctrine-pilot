@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from core.alarms import evaluate_alarms
 from core.autopilot import blueprint_readiness
+from blueprints import load_catalog
 from core.doctrine import (
     BlueprintQueueItem,
     DoctrinePatch,
@@ -207,6 +208,17 @@ class OfflineAdvisor:
     blueprints: list[str] = field(default_factory=list)
     budget: RequestBudget = field(default_factory=RequestBudget)
 
+    @staticmethod
+    def _storage_zone(doctrine: FortressDoctrine, state: FortressState):
+        """A zone that fits the storage hall and is neither live-assigned nor reserved by another queue entry."""
+        existing = next((b for b in doctrine.blueprint_queue if b.id == "storage-1"), None)
+        if existing:
+            return next((z for z in state.zones if z.id == existing.zone_id), None)
+        reserved = {b.zone_id for b in doctrine.blueprint_queue}
+        w, h = load_catalog()["stockpiles_core"]["size"]
+        return next((z for z in state.zones
+                     if not z.assigned and z.id not in reserved and z.w >= w and z.h >= h), None)
+
     def ask(self, history: list[ChatTurn], message: str, doctrine: FortressDoctrine,
             state: FortressState | None, *, analysis: bool = False) -> AdvisorResult:
         self.budget.check(doctrine.gemini, analysis=analysis)
@@ -233,7 +245,7 @@ class OfflineAdvisor:
         if re.search(r"cibo|pasti|fame|food|meal", text) or "food_low" in text:
             scale("prepared_meals", 40)
         if re.search(r"magazzin|stockpile|storage|spazio", text) and state:
-            free = next((z for z in state.zones if not z.assigned), None)
+            free = self._storage_zone(doctrine, state)
             if free and "stockpiles_core" in self.blueprints:
                 patch.upsert_blueprints.append(
                     BlueprintQueueItem(id="storage-1", blueprint="stockpiles_core", zone_id=free.id, priority=70)

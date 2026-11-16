@@ -91,10 +91,11 @@ def plan_production(state: FortressState, doctrine: FortressDoctrine) -> list[Pl
     return out
 
 
-def plan_stockpiles(state: FortressState, doctrine: FortressDoctrine, last_expand: dict[int, int]) -> list[PlannedAction]:
+def plan_stockpiles(state: FortressState, doctrine: FortressDoctrine, last_expand: dict[int, int],
+                    planned_jobs: set[str] = frozenset()) -> list[PlannedAction]:
     out: list[PlannedAction] = []
     workshops = {w.name for w in state.workshops}
-    open_jobs = {o.job for o in state.work_orders if o.status in ("queued", "active")}
+    open_jobs = {o.job for o in state.work_orders if o.status in ("queued", "active")} | set(planned_jobs)
     for rule in doctrine.stockpile_rules:
         if not rule.enabled:
             continue
@@ -210,6 +211,10 @@ class AlertManager:
                 out.append(a)
         return out
 
+    def rearm(self, alarms: list[Alarm]) -> None:
+        for a in alarms:
+            self._last.pop(a.kind, None)
+
 
 class Autopilot:
     def __init__(self, bridge: FortressBridge, doctrine: FortressDoctrine, *, dry_run: bool = False,
@@ -237,7 +242,8 @@ class Autopilot:
             planned += [p for p in plan_production(state, d)
                         if not (p.key == "act.create_order" and p.params["item"] in emergency_items)]
         if m.stockpiles:
-            planned += plan_stockpiles(state, d, self._last_expand)
+            planned_jobs = {p.params["job"] for p in planned if p.key == "act.create_order"}
+            planned += plan_stockpiles(state, d, self._last_expand, planned_jobs)
         if m.blueprints:
             planned += plan_blueprints(state, d, alarms)
         return planned
@@ -275,6 +281,8 @@ class Autopilot:
                 rec = self._execute(pause, state, now)
                 result.actions.append(rec)
                 result.paused_by_autopilot = rec.status == "ok"
+                if rec.status != "ok":
+                    self.alerts.rearm(result.notifications)  # retry the safety pause next tick
         return result
 
     def _execute(self, p: PlannedAction, state: FortressState, now: float) -> ActionRecord:

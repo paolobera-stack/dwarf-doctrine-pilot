@@ -85,3 +85,14 @@ def test_store_persists_history(tmp_path):
     assert store.load() == approved
     assert (tmp_path / "history" / f"doctrine_v{approved.version:04d}.json").exists()
     assert approved.version == default_doctrine().version + 1 and approved.approved_at
+
+
+def test_module_switch_save_keeps_approval_archive(tmp_path):
+    store = DoctrineStore(tmp_path)
+    approved = default_doctrine().approved()
+    store.save(approved)
+    archived = (tmp_path / "history" / f"doctrine_v{approved.version:04d}.json").read_text()
+    toggled = approved.model_copy(update={"modules": approved.modules.model_copy(update={"blueprints": True})})
+    store.save(toggled, archive=False)
+    assert store.load().modules.blueprints is True
+    assert (tmp_path / "history" / f"doctrine_v{approved.version:04d}.json").read_text() == archived

@@ -9,12 +9,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import socket
 import sys
 
 from core.advisor import make_advisor
+from blueprints import load_catalog
 from core.config import AppConfig, load_dotenv
 from core.doctrine import DoctrineStore
 from core.i18n import set_language
@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setStyleSheet(STYLESHEET)
 
     bridge, server = build_bridge(cfg, args.embedded, args.seed, args.speed)
-    catalog = json.loads((cfg.blueprints_dir / "catalog.json").read_text(encoding="utf-8"))
+    catalog = load_catalog()
     advisor = make_advisor(cfg.gemini_api_key, cfg.gemini_model, list(catalog))
     win = MainWindow(bridge, DoctrineStore(cfg.data_dir), advisor, dry_run=args.dry_run)
     win.tabs.setCurrentIndex(args.tab)

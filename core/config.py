@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from blueprints import BLUEPRINTS_DIR
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -29,4 +31,4 @@ class AppConfig:
     mock_host: str = "127.0.0.1"
     mock_port: int = field(default_factory=lambda: int(os.environ.get("DDP_MOCK_PORT", "5577")))
     data_dir: Path = field(default_factory=lambda: Path(os.environ.get("DDP_DATA_DIR", ROOT / "data")))
-    blueprints_dir: Path = ROOT / "blueprints"
+    blueprints_dir: Path = BLUEPRINTS_DIR

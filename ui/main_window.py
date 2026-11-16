@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 from pydantic import ValidationError
 from PySide6.QtCore import QThread, Qt, QTimer
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QLabel,
     QMainWindow,
@@ -263,7 +266,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------ doctrine
     def _on_modules(self, modules: AutomationModules) -> None:
         self.doctrine = self.doctrine.model_copy(update={"modules": modules})
-        self.store.save(self.doctrine)
+        self.store.save(self.doctrine, archive=False)
         self.worker.set_doctrine(self.doctrine)
         on = [tr(f"module.{m}") for m, v in modules.model_dump().items() if v]
         self.panel.append_log(tr("log.modules", modules=", ".join(on) or "—"), "user")
@@ -356,7 +359,10 @@ class MainWindow(QMainWindow):
         off_language_changed(self._lang_cb)
         QTimer.singleShot(0, self.worker, self.worker.stop)
         self.thread_.quit()
-        self.thread_.wait(3000)
-        if self._advisor_thread is not None:
-            self._advisor_thread.wait(3000)
+        busy = not self.thread_.wait(5000)
+        if self._advisor_thread is not None and self._advisor_thread.isRunning():
+            busy = True  # a blocking Gemini call cannot be interrupted
+        if busy:
+            # Never destroy a running QThread (Qt aborts): exit the process once Qt returns.
+            QApplication.instance().aboutToQuit.connect(lambda: os._exit(0))
         super().closeEvent(event)

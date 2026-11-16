@@ -96,3 +96,15 @@ def test_gemini_payload_under_budget_and_structured(fake_gemini):
     contents, config = fake_gemini[0]
     assert config.response_mime_type == "application/json" and config.response_json_schema == AdvisorReply.model_json_schema()
     assert "DOCTRINE=" in contents and "STATE=" in contents
+
+
+@pytest.mark.parametrize("bedrooms_started", [False, True])
+def test_offline_storage_uses_free_fitting_zone(bedrooms_started):
+    sim = FortressSim()
+    if bedrooms_started:
+        sim.enqueue_blueprint("bedrooms-1", "bedrooms_3x3", "Z1")
+    d = default_doctrine()
+    res = OfflineAdvisor(blueprints=BPS).ask([], "servono magazzini", d, sim.snapshot())
+    storage = next(b for b in apply_patch(d, res.reply.proposal).blueprint_queue if b.id == "storage-1")
+    assert storage.zone_id == "Z4"
+    sim.enqueue_blueprint(storage.id, storage.blueprint, storage.zone_id)  # accepted by the mock

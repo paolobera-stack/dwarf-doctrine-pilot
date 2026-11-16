@@ -297,7 +297,7 @@ def default_doctrine() -> FortressDoctrine:
         strategy_notes="Priorità: cibo e birra stabili, magazzini ordinati, camere per i migranti.",
         stock_targets=[
             StockTarget(item="drink", job="BrewDrink", min=60, target=120, max=250, yield_per_job=5, batch=2),
-            StockTarget(item="prepared_meals", job="PrepareMeal", min=40, target=100, max=200, yield_per_job=4, batch=2),
+            StockTarget(item="prepared_meals", job="PrepareMeal", min=40, target=100, max=200, yield_per_job=3, batch=2),
             StockTarget(item="beds", job="ConstructBed", min=2, target=6, max=20, batch=2),
             StockTarget(item="doors", job="ConstructDoor", min=2, target=6, max=20, batch=2),
             StockTarget(item="tables", job="MakeTable", min=9, target=12, max=20, batch=3),
@@ -346,8 +346,12 @@ class DoctrineStore:
             return FortressDoctrine.model_validate_json(self.path.read_text(encoding="utf-8"))
         return default_doctrine()
 
-    def save(self, doctrine: FortressDoctrine) -> None:
-        self.history_dir.mkdir(parents=True, exist_ok=True)
+    def save(self, doctrine: FortressDoctrine, *, archive: bool = True) -> None:
+        """Persist the active doctrine; `archive` also snapshots it as an immutable approval record."""
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         payload = doctrine.model_dump_json(indent=2)
         self.path.write_text(payload, encoding="utf-8")
+        if not archive:
+            return
+        self.history_dir.mkdir(parents=True, exist_ok=True)
         (self.history_dir / f"doctrine_v{doctrine.version:04d}.json").write_text(payload, encoding="utf-8")

@@ -127,3 +127,59 @@ def test_long_run_is_stable_enough():
     st = bridge.get_state()
     assert st.date.day_of_year == 60
     assert any(o.status == "done" for o in st.work_orders)
+
+
+def test_failed_safety_pause_is_retried_next_tick():
+    from dfhack_bridge.base import BridgeError
+
+    class FlakyBridge(LocalMockBridge):
+        fails = 1
+
+        def set_paused(self, paused):
+            if self.fails:
+                self.fails -= 1
+                raise BridgeError("busy")
+            super().set_paused(paused)
+
+    sim = FortressSim(seed=7, random_events=False)
+    bridge = FlakyBridge(sim)
+    clock = {"t": 0.0}
+    ap = Autopilot(bridge, default_doctrine(), clock=lambda: clock["t"])
+    with sim.lock:
+        sim.stocks["drink"] = 0
+    r1 = ap.run_tick()
+    assert [a.status for a in r1.actions if a.key == "act.pause"] == ["failed"]
+    clock["t"] = 5
+    r2 = ap.run_tick()
+    assert r2.paused_by_autopilot and bridge.get_state().paused
+    bridge.set_paused(False)  # user resumes: cooldown holds after a successful pause
+    clock["t"] = 10
+    assert not ap.run_tick().paused_by_autopilot
+
+
+def test_container_order_not_duplicated_with_production_refill():
+    _, bridge, ap, _ = make()
+    state = bridge.get_state()
+    state.stocks.update({"barrels": 0, "drink": 300, "prepared_meals": 300})
+    for p in state.stockpiles:
+        if p.category == "food":
+            p.used = p.capacity
+    ap.doctrine.limits.max_actions_per_tick = 50
+    r = ap.run_tick(state)
+    barrel_orders = [a for a in r.actions if a.params.get("job") == "MakeBarrel"]
+    assert len(barrel_orders) == 1 and barrel_orders[0].key == "act.create_order"
+
+
+def test_blueprint_completes_with_exact_catalog_materials():
+    sim = FortressSim(seed=7, random_events=False)
+    spec = sim.catalog["bedrooms_3x3"]
+    sim.enqueue_blueprint("bp", "bedrooms_3x3", "Z1")
+    job = sim.blueprints[0]
+    job.status, job.progress = "building", 0.0
+    for d in sim.dwarves:
+        d.labors = ["Construction"]
+    for item, qty in spec["build_materials"].items():
+        sim.stocks[item] = qty
+    for _ in range(10):
+        sim._blueprints_progress(set())
+    assert job.status == "done"
