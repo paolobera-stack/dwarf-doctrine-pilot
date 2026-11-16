@@ -314,14 +314,9 @@ def default_doctrine() -> FortressDoctrine:
             StockpileRule(category="furniture", max_fill_pct=80, container_job="MakeBin", auto_expand_cells=6),
         ],
         blueprint_queue=[
+            # Workshops first and unconditional: everything else needs them (beds, doors, blocks).
+            BlueprintQueueItem(id="workshops-1", blueprint="workshops_core", zone_id="Z2", priority=90),
             BlueprintQueueItem(id="bedrooms-1", blueprint="bedrooms_3x3", zone_id="Z1", priority=80),
-            BlueprintQueueItem(
-                id="workshops-1",
-                blueprint="workshops_core",
-                zone_id="Z2",
-                priority=60,
-                preconditions=BlueprintPreconditions(min_stocks=[StockRequirement(item="blocks", min=20)]),
-            ),
             BlueprintQueueItem(
                 id="dining-1",
                 blueprint="dining_hall",

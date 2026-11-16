@@ -13,7 +13,7 @@ from core.doctrine import default_doctrine as FortressDoctrine
 from dfhack_bridge.base import BridgeError
 from dfhack_bridge.dfhack_bridge import ACTIONS_SCRIPT, DFHackBridge
 from dfhack_bridge.dfhack_state import blueprint_job
-from dfhack_bridge.protocol import BlueprintJob, FortressState
+from dfhack_bridge.protocol import BlueprintJob, FortressState, Zone
 from tests.test_dfhack_actions import FakeGame
 
 W, H = 12, 10  # zone Z1, a bit larger than bedrooms_3x3 (11x9)
@@ -219,3 +219,14 @@ def test_advance_ignores_concurrency_but_not_critical_alarms():
     assert [p.key for p in plan_blueprints(state, d, [])] == ["act.advance_blueprint"]
     critical = Alarm(kind="siege", level="critical", key="alarm.siege")
     assert plan_blueprints(state, d, [critical]) == []
+
+
+def test_unfurnished_blueprint_does_not_block_the_next_dig():
+    zones = [Zone(id="Z1", name="Camere", x=0, y=0, z=0, w=11, h=9, assigned="bedrooms-1"),
+             Zone(id="Z2", name="Laboratori", x=20, y=0, z=0, w=11, h=7)]
+    job = BlueprintJob(id="bedrooms-1", blueprint="bedrooms_3x3", zone_id="Z1", status="building", progress=0.5)
+    d = FortressDoctrine()
+    planned = plan_blueprints(FortressState(blueprints=[job], zones=zones), d, [])
+    assert [(p.key, p.params["id"]) for p in planned] == [("act.enqueue_blueprint", "workshops-1")]
+    job.status = "digging"
+    assert plan_blueprints(FortressState(blueprints=[job], zones=zones), d, []) == []

@@ -170,7 +170,8 @@ def plan_blueprints(state: FortressState, doctrine: FortressDoctrine, alarms: li
     out = [PlannedAction("blueprints", "act.advance_blueprint", {"id": b.id, "zone": b.zone_id},
                          lambda br, q=b.id: br.advance_blueprint(q))
            for b in state.blueprints if b.awaiting_build]
-    active = [b for b in state.blueprints if b.status != "done"]
+    # Only digging counts: furniture of a dug blueprint may need workshops from the next one.
+    active = [b for b in state.blueprints if b.status in ("queued", "digging")]
     if len(active) >= doctrine.limits.max_concurrent_blueprints:
         return out
     for item in sorted(doctrine.blueprint_queue, key=lambda i: -i.priority):
