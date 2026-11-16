@@ -1,0 +1,12 @@
+#dig label(dig) start(1;1) 11x5 workshop hall
+d,d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d,d
+d,d,d,d,d,d,d,d,d,d,d
+#build label(workshops) start(1;1) Carpenter, mason, still, kitchen
+wc(3x3),`,`,`,wm(3x3),`,`,`,wl(3x3),`,`
+`,`,`,`,`,`,`,`,`,`,`
+`,`,`,`,`,`,`,`,`,`,`
+`,`,`,`,`,`,`,`,`,`,`
+wz(3x3),`,`,`,`,`,`,`,`,`,`
