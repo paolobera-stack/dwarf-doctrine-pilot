@@ -67,12 +67,12 @@ end
 local function utf(s) return s and dfhack.df2utf(s) or '' end
 local function enum_name(enum, v) return enum[v] or tostring(v) end
 
--- Items that count as usable fortress stock.
+-- Items that count as usable fortress stock (same exclusions as DFHack's workflow
+-- plugin). Not `foreign`: embark supplies carry it too.
 local function usable(item)
     local f = item.flags
-    return not (f.forbid or f.dump or f.rotten or f.trader or f.foreign or f.hostile
-        or f.removed or f.garbage_collect or f.construction or f.in_building
-        or f.spider_web or f.encased or f.murder or f.artifact)
+    return not (f.forbid or f.dump or f.rotten or f.trader or f.hostile or f.on_fire
+        or f.removed or f.garbage_collect or f.construction or f.in_building or f.artifact)
 end
 
 local STOCK_TYPES = {'DRINK', 'FOOD', 'PLANT', 'PLANT_GROWTH', 'MEAT', 'FISH', 'WOOD', 'BOULDER',

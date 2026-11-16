@@ -48,7 +48,7 @@ local copper = item('BAR', 2, {}, {mat = 'INORGANIC:COPPER'})
 local rotten_meat = item('MEAT', 9, {rotten = true})
 
 local other = setmetatable({
-    DRINK = {drink_on_pile, item('DRINK', 15, {})},
+    DRINK = {drink_on_pile, item('DRINK', 15, {in_inventory = true, foreign = true})},  -- embark barrel
     FOOD = {meal_on_pile},
     PLANT = {item('PLANT', 7, {})},
     MEAT = {item('MEAT', 2, {}), rotten_meat},
