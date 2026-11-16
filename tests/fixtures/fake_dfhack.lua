@@ -151,3 +151,23 @@ df.global.world.buildings.all = {
     building(300, 'Bed', 30, 40, 3, true), building(301, 'Door', 31, 42, 3, false),
     building(302, 'Bed', 30, 40, 4, true), building(100, 'Stockpile', 31, 41, 3, true),
 }
+
+-- Burrow "DDP Z2 Laboratori": tiles x 46..49, y 47..49 on z 3, spanning two map blocks, plus one tile on z 2.
+local function burrow_block(x, y, z, has)
+    return {map_pos = {x = x, y = y, z = z}, has = has}
+end
+df.global.plotinfo = {burrows = {list = {
+    {id = 1, name = 'DDP Z2 Laboratori', blocks = {
+        burrow_block(32, 32, 2, function(dx, dy) return dx == 0 and dy == 0 end),
+        burrow_block(32, 32, 3, function(dx, dy) return dx >= 14 and dy == 15 end),
+        burrow_block(32, 48, 3, function(dx, dy) return dx >= 14 and dy <= 1 end),
+        burrow_block(48, 32, 3, function(dx, dy) return dx <= 1 and dy == 15 end),
+        burrow_block(48, 48, 3, function(dx, dy) return dx <= 1 and dy <= 1 end),
+    }},
+    {id = 2, name = 'Rifugio', blocks = {}},
+    {id = 3, name = 'DDP Z9 Vuoto', blocks = {}},
+}}}
+dfhack.burrows = {
+    listBlocks = function(b) return b.blocks end,
+    isAssignedBlockTile = function(b, block, dx, dy) return block.has(dx, dy) end,
+}

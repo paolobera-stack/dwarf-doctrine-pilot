@@ -39,7 +39,7 @@ def test_exporter_raw_document(raw):
     assert (food["tiles"], food["used_tiles"]) == (5, 1)
     assert drink["drink_only"] and not food["drink_only"]
     assert wood["give_to_workshops"] == [10]
-    assert [z["name"] for z in raw["zones"]] == ["DDP Z1 Camere"]
+    assert [z["name"] for z in raw["zones"]] == ["DDP Z1 Camere", "DDP Z2 Laboratori"]
     assert raw["threats"] == {"invaders": 1, "great_dangers": 0, "dangers": 1, "merchants": 1}
 
 
@@ -66,7 +66,8 @@ def test_raw_to_state(raw):
     assert piles[101].category == "drink" and piles[101].links == ["Still"]
     assert piles[102].category == "wood" and piles[102].links == ["Carpenter"]
     assert {w.name: w.count for w in s.workshops} == {"Carpenter": 1, "Still": 1, "Smelter": 1}  # kitchen unbuilt
-    assert [(z.id, z.name, z.w, z.h, z.z) for z in s.zones] == [("Z1", "Camere", 10, 5, 3)]
+    assert [(z.id, z.name, z.w, z.h, z.z) for z in s.zones] == [("Z1", "Camere", 10, 5, 3),
+                                                                  ("Z2", "Laboratori", 4, 3, 3)]
     miner, brewer = s.dwarves
     assert (miner.activity, miner.labors, miner.skills) == ("Dig", ["hauling", "mining"], {"mining": 7})
     assert (brewer.activity, brewer.stress, brewer.skills) == ("Idle", 0, {"brewing": 5, "cooking": 2})
@@ -144,3 +145,12 @@ def test_exporter_zone_tiles_and_buildings():
     z = run_exporter()["zones"][0]
     assert z["tiles"] == ["...D######"] * 5  # dug, designated, solid
     assert [(b["id"], b["type"], b["built"]) for b in z["buildings"]] == [(300, "Bed", True), (301, "Door", False)]
+
+
+def test_exporter_reads_ddp_burrows_as_zones():
+    raw = run_exporter()
+    assert not raw["errors"]
+    burrows = [z for z in raw["zones"] if z["type"] == "Burrow"]
+    assert [(z["name"], z["x1"], z["y1"], z["x2"], z["y2"], z["z"]) for z in burrows] == [
+        ("DDP Z2 Laboratori", 46, 47, 49, 49, 3)]
+    assert burrows[0]["tiles"] == ["####"] * 3

@@ -99,7 +99,7 @@ python main.py
 - Misure minime delle zone: camere 11×9, laboratori 11×7, sala da pranzo 9×7, magazzini 10×6.
 - Non ancora supportati su DFHack (l'autopilota li salta): espansione dei magazzini.
 - Letti: scorte (oggetti utilizzabili: no proibiti, marci, del mercante, già costruiti), barre per materiale, oggetti a terra fuori dai magazzini, ordini di lavoro (anche `CustomReaction` per la birra), magazzini (caselle occupate/totali, categoria, link), laboratori e fornaci costruiti, cittadini (professione, stress, lavoro attuale, mansioni, abilità), minacce visibili (invasori, grandi pericoli, mercanti).
-- **Zone per i blueprint**: le zone attività il cui nome inizia con `DDP` (es. `DDP Z1 Camere` → zona `Z1` "Camere"). Le altre zone sono ignorate.
+- **Zone per i blueprint**: cunicoli (burrow) o zone attività il cui nome inizia con `DDP` (es. `DDP Z1 Camere` → zona `Z1` "Camere"). Gli altri sono ignorati. Sulla roccia non scavata usa un cunicolo: il gioco non permette di disegnarvi zone attività. Di un cunicolo conta il rettangolo che lo racchiude, sul suo livello più alto.
 - Ogni sezione dell'exporter è isolata: se una fallisce (es. campo rinominato in una versione di DFHack) compare in `errors` e il resto viene letto comunque.
 - Lettura verificata su DFHack 53.17-r1 / DF 0.53.17 (Steam). Azioni verificate contro un ambiente DFHack simulato.
 
