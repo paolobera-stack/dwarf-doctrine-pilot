@@ -34,7 +34,8 @@ Chat con Gemini: imposta `GEMINI_API_KEY` (o `GOOGLE_API_KEY`) nell'ambiente opp
 | `DDP_LANG` | `it` | `it` / `en` |
 | `GEMINI_API_KEY` | — | chiave Gemini (Free Tier) |
 | `DDP_GEMINI_MODEL` | `gemini-3.5-flash` | `gemini-2.5-flash` non è più disponibile per le chiavi nuove |
-| `DDP_BRIDGE` | `mock` | `mock` / `dfhack` (stub nello Step 1) |
+| `DDP_BRIDGE` | `mock` | `mock` / `dfhack` (sola lettura, vedi sotto) |
+| `DDP_DFHACK_RUN` | da `PATH` | percorso di `dfhack-run(.exe)`, nella cartella del gioco |
 | `DDP_MOCK_PORT` | `5577` | |
 | `DDP_DATA_DIR` | `./data` | dottrina approvata + storico versioni |
 
@@ -52,7 +53,10 @@ dfhack_bridge/
   protocol.py     contratto dello stato (FortressState)
   mock_server.py  simulazione della fortezza nel tempo + server TCP JSON-lines
   mock_bridge.py  client TCP e bridge in-process
-  dfhack_bridge.py + lua/   stub DFHack (comandi dfhack-run, script Lua da completare)
+  dfhack_bridge.py  bridge DFHack reale (lettura via dfhack-run; azioni disattivate)
+  dfhack_state.py   mappatura export grezzo DF -> FortressState
+  lua/ddp_state.lua exporter Lua in sola lettura
+  probe.py          diagnostica: ddp-dfhack-probe
 blueprints/       file Quickfort CSV + catalog.json (dimensioni, materiali, effetti)
 ui/               GUI PySide6 stile Dwarf Therapist (QTableView + QAbstractTableModel)
 tests/            pytest (dottrina, autopilota, mock server, advisor, GUI offscreen)
@@ -68,6 +72,28 @@ tests/            pytest (dottrina, autopilota, mock server, advisor, GUI offscr
 
 Barra superiore: autopilota ON/OFF, dry-run, pausa/riprendi, analisi strategica (chiamata Gemini esplicita), simulazione eventi (mock), lingua.
 
+## DFHack reale (sola lettura)
+
+Con Dwarf Fortress + DFHack aperti e una fortezza caricata:
+
+```
+ddp-dfhack-probe --dfhack-run "C:\Program Files (x86)\Steam\steamapps\common\Dwarf Fortress\dfhack-run.exe"
+```
+
+Stampa un riepilogo e salva `ddp_probe/raw_state.json` (export grezzo) e `ddp_probe/state.json` (stato mappato). Poi la GUI sulla partita vera:
+
+```
+set DDP_BRIDGE=dfhack
+set DDP_DFHACK_RUN=C:\...\Dwarf Fortress\dfhack-run.exe
+python main.py
+```
+
+- Il bridge **non modifica la partita**: l'autopilota resta in dry-run forzato (pianifica ordini e pausa, non li esegue). Gli allarmi critici vengono notificati ma il gioco non viene messo in pausa.
+- Letti: scorte (oggetti utilizzabili: no proibiti, marci, del mercante, già costruiti), barre per materiale, oggetti a terra fuori dai magazzini, ordini di lavoro (anche `CustomReaction` per la birra), magazzini (caselle occupate/totali, categoria, link), laboratori e fornaci costruiti, cittadini (professione, stress, lavoro attuale, mansioni, abilità), minacce visibili (invasori, grandi pericoli, mercanti).
+- **Zone per i blueprint**: le zone attività il cui nome inizia con `DDP` (es. `DDP Z1 Camere` → zona `Z1` "Camere"). Le altre zone sono ignorate.
+- Ogni sezione dell'exporter è isolata: se una fallisce (es. campo rinominato in una versione di DFHack) compare in `errors` e il resto viene letto comunque.
+- Verificato solo contro un ambiente DFHack simulato (`tests/fixtures/fake_dfhack.lua`), riferimento API DFHack 53.17-r1. Da confermare su una partita vera.
+
 ## Sicurezza del design
 
 - L'autopilota esegue **solo** la dottrina approvata; ogni approvazione crea `data/history/doctrine_vNNNN.json`.
@@ -76,7 +102,7 @@ Barra superiore: autopilota ON/OFF, dry-run, pausa/riprendi, analisi strategica 
 - Cooldown per tipo di allarme: un allarme persistente mette in pausa una volta per finestra.
 - Budget Free Tier lato client: richieste/minuto, richieste/giorno, cooldown per le analisi.
 
-## Stato dello Step 1
+## Stato
 
-- DFHack: solo interfaccia e stub (`dfhack_bridge/dfhack_bridge.py`, `dfhack_bridge/lua/`). Da completare e verificare in gioco.
+- DFHack: lettura implementata (Step 2A), da verificare in gioco. Azioni (ordini, pausa, Quickfort) nello step successivo.
 - Il mock è un'approssimazione per sviluppare e dimostrare il flusso, non un modello fedele dell'economia di DF.

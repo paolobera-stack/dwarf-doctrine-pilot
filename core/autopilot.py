@@ -228,6 +228,15 @@ class Autopilot:
         self._last_expand: dict[int, int] = {}
         self._last_dry: set[tuple] = set()
 
+    @property
+    def dry_run(self) -> bool:
+        """A read-only bridge (DFHack in Step 2A) always plans without executing."""
+        return self._dry_run or getattr(self.bridge, "read_only", False)
+
+    @dry_run.setter
+    def dry_run(self, value: bool) -> None:
+        self._dry_run = value
+
     def set_doctrine(self, doctrine: FortressDoctrine) -> None:
         self.doctrine = doctrine
         self._last_dry.clear()

@@ -46,8 +46,8 @@ def test_simulation_is_deterministic_and_evolves():
     assert a.snapshot().stocks != start
 
 
-def test_dfhack_bridge_is_a_stub():
+def test_dfhack_bridge_is_read_only():
     b = DFHackBridge(dfhack_run="dfhack-run")
     assert b.cmd_get_state()[:2] == ["dfhack-run", "lua"]
     with pytest.raises(BridgeError):
-        b.get_state()
+        b.create_work_order("BrewDrink", 5)
