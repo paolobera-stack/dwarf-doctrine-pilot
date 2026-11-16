@@ -272,7 +272,7 @@ class DFHackBridge(FortressBridge):
         sections = self._sections(blueprint)
         zone = find_raw_zone(raw, zone_id)
         if zone is None:
-            raise BridgeError(f"zone {zone_id} not found: name an activity zone 'DDP {zone_id} ...'")
+            raise BridgeError(f"zone {zone_id} not found: name a burrow 'DDP {zone_id} ...'")
         for other in self.bp_ledger.entries(fort).values():
             if other["zone_id"] == zone_id:
                 raise BridgeError(f"zone {zone_id} is already used by blueprint {other['blueprint']}")
