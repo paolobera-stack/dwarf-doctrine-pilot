@@ -94,5 +94,5 @@ def test_gemini_payload_under_budget_and_structured(fake_gemini):
     res = adv.ask([], "Strategia?", d, st)
     assert res.reply.proposal.strategy_notes == "more ale"
     contents, config = fake_gemini[0]
-    assert config.response_mime_type == "application/json" and config.response_schema is AdvisorReply
+    assert config.response_mime_type == "application/json" and config.response_json_schema == AdvisorReply.model_json_schema()
     assert "DOCTRINE=" in contents and "STATE=" in contents

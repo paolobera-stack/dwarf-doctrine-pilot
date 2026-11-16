@@ -15,7 +15,7 @@ import socket
 import sys
 
 from core.advisor import make_advisor
-from core.config import AppConfig
+from core.config import AppConfig, load_dotenv
 from core.doctrine import DoctrineStore
 from core.i18n import set_language
 
@@ -59,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
+    load_dotenv()
     cfg = AppConfig()
     set_language(args.lang or cfg.language)
 

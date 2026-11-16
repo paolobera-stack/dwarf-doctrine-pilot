@@ -4,7 +4,7 @@ Co-pilota e autopilota *human-in-the-loop* per **Dwarf Fortress (Steam) + DFHack
 
 | Ciclo | Chi | Costo token | Cosa fa |
 |---|---|---|---|
-| Strategico | Tu + Gemini (`gemini-2.5-flash`), **solo su richiesta** | < 2.000 token/chiamata | Discute la strategia e propone una patch della `FortressDoctrine`. Tu la approvi con **[Approva e Automatizza]** o la **[Rifiuti]**. |
+| Strategico | Tu + Gemini (`gemini-3.5-flash`, configurabile), **solo su richiesta** | < 2.000 token/chiamata | Discute la strategia e propone una patch della `FortressDoctrine`. Tu la approvi con **[Approva e Automatizza]** o la **[Rifiuti]**. |
 | Operativo | Autopilota deterministico locale, ogni 5 s | 0 | Legge lo stato e applica la dottrina approvata: work order, magazzini, blueprint Quickfort nelle zone designate. |
 | Emergenza | Regole locali | 0 | Ordini d'emergenza calcolati (giorni di cibo/bevande), poi **pausa del gioco e notifica a te**. Gemini **non** viene mai chiamato in automatico: solo se clicchi "Analizza con Gemini". |
 
@@ -27,13 +27,13 @@ python -m dfhack_bridge.mock_server --speed 0.5 --seed 7   # porta 5577
 python main.py                                              # si collega al server se è attivo
 ```
 
-Chat con Gemini: imposta `GEMINI_API_KEY` (o `GOOGLE_API_KEY`). Senza chiave la chat usa un advisor offline a parole chiave (birra, cibo, magazzini, difesa) per provare il flusso di approvazione.
+Chat con Gemini: imposta `GEMINI_API_KEY` (o `GOOGLE_API_KEY`) nell'ambiente oppure in un file `.env` nella root del repo (ignorato da git): `GEMINI_API_KEY=...`. Senza chiave la chat usa un advisor offline a parole chiave (birra, cibo, magazzini, difesa) per provare il flusso di approvazione.
 
 | Variabile | Default | |
 |---|---|---|
 | `DDP_LANG` | `it` | `it` / `en` |
 | `GEMINI_API_KEY` | — | chiave Gemini (Free Tier) |
-| `DDP_GEMINI_MODEL` | `gemini-2.5-flash` | |
+| `DDP_GEMINI_MODEL` | `gemini-3.5-flash` | `gemini-2.5-flash` non è più disponibile per le chiavi nuove |
 | `DDP_BRIDGE` | `mock` | `mock` / `dfhack` (stub nello Step 1) |
 | `DDP_MOCK_PORT` | `5577` | |
 | `DDP_DATA_DIR` | `./data` | dottrina approvata + storico versioni |

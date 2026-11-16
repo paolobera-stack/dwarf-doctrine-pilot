@@ -125,7 +125,7 @@ Rules:
 - Upserted stock targets must be complete objects with min <= target <= max.
 - Use only these jobs: {jobs}. Blueprints: {blueprints}. Use only zones present in STATE.zones (free ones have no '*').
 - Never change automation switches; the user owns them.
-- If no change is needed, leave `proposal` null."""
+- When the user asks for advice or reports a problem, include a concrete `proposal`; leave it null only if no doctrine change helps."""
 
 
 def _estimate_tokens(text: str) -> int:
@@ -135,10 +135,11 @@ def _estimate_tokens(text: str) -> int:
 @dataclass
 class GeminiAdvisor:
     api_key: str
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3.5-flash"
     blueprints: list[str] = field(default_factory=list)
     budget: RequestBudget = field(default_factory=RequestBudget)
     history_turns: int = 4
+    fallback_models: tuple[str, ...] = ("gemini-3.5-flash-lite",)
 
     def __post_init__(self) -> None:
         from google import genai
@@ -177,18 +178,25 @@ class GeminiAdvisor:
         self.budget.check(doctrine.gemini, analysis=analysis)
         system, user, tokens = self.build_payload(history, message, doctrine, state)
         self.budget.record(analysis=analysis)
-        resp = self._client.models.generate_content(
-            model=self.model,
-            contents=user,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                response_mime_type="application/json",
-                response_schema=AdvisorReply,
-                temperature=0.3,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
-            ),
+        from google.genai import errors
+
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            response_mime_type="application/json",
+            # JSON Schema (not the OpenAPI subset): supports additionalProperties from extra="forbid".
+            response_json_schema=AdvisorReply.model_json_schema(),
+            temperature=0.3,
+            thinking_config=types.ThinkingConfig(thinking_budget=0) if "2.5" in self.model else None,
         )
-        reply = resp.parsed if isinstance(resp.parsed, AdvisorReply) else AdvisorReply.model_validate_json(resp.text)
+        models = [self.model, *(m for m in self.fallback_models if m != self.model)]
+        for i, model in enumerate(models):
+            try:
+                resp = self._client.models.generate_content(model=model, contents=user, config=config)
+                break
+            except errors.ServerError:  # 503 "high demand": try the lighter model once
+                if i == len(models) - 1:
+                    raise
+        reply = AdvisorReply.model_validate_json(resp.text)
         return AdvisorResult(reply=reply, payload_tokens=tokens)
 
 
