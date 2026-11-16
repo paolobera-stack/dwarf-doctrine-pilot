@@ -3,7 +3,7 @@
     python main.py                  # GUI + embedded mock fortress (if no mock server is running)
     python main.py --lang en        # English UI
     python main.py --dry-run        # plan actions without executing them
-    DDP_BRIDGE=dfhack python main.py  # DFHack bridge (stub in Step 1)
+    DDP_BRIDGE=dfhack python main.py  # live DFHack, read-only (forced dry-run)
 """
 
 from __future__ import annotations

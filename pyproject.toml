@@ -10,11 +10,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-qt>=4.4"]
+dev = ["pytest>=8", "pytest-qt>=4.4", "lupa>=2.0"]
 
 [project.scripts]
 ddp = "main:main"
 ddp-mock-server = "dfhack_bridge.mock_server:main"
+ddp-dfhack-probe = "dfhack_bridge.probe:main"
 
 [tool.setuptools]
 packages = ["core", "dfhack_bridge", "ui", "blueprints"]
