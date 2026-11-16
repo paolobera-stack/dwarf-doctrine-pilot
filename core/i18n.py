@@ -16,6 +16,15 @@ _STRINGS: dict[str, dict[str, str]] = {
     "toolbar.autopilot_on": {"it": "Autopilota: ATTIVO", "en": "Autopilot: ON"},
     "toolbar.autopilot_off": {"it": "Autopilota: SPENTO", "en": "Autopilot: OFF"},
     "toolbar.dry_run": {"it": "Simulazione (dry-run)", "en": "Dry run"},
+    "live.title": {"it": "Attivare le azioni sulla partita?", "en": "Enable actions on the game?"},
+    "live.body": {
+        "it": "L'autopilota creerà e annullerà ordini di lavoro e collegherà magazzini nella partita vera, "
+              "secondo la dottrina approvata. Annulla solo gli ordini creati da lui.\n\n"
+              "Consiglio: salva la partita prima di continuare.",
+        "en": "The autopilot will create and cancel work orders and link stockpiles in the real game, "
+              "following the approved doctrine. It only cancels orders it created.\n\n"
+              "Tip: save your game before continuing.",
+    },
     "toolbar.pause_game": {"it": "Pausa gioco", "en": "Pause game"},
     "toolbar.resume_game": {"it": "Riprendi gioco", "en": "Resume game"},
     "toolbar.language": {"it": "Lingua", "en": "Language"},

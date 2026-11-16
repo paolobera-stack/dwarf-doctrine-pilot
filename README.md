@@ -88,11 +88,15 @@ set DDP_DFHACK_RUN=C:\...\Dwarf Fortress\dfhack-run.exe
 python main.py
 ```
 
-- Il bridge **non modifica la partita**: l'autopilota resta in dry-run forzato (pianifica ordini e pausa, non li esegue). Gli allarmi critici vengono notificati ma il gioco non viene messo in pausa.
+- Con DFHack la GUI **parte sempre in dry-run**: l'autopilota pianifica ma non esegue. Per attivare le azioni togli la spunta a "Simulazione" e confermi l'avviso (salva prima la partita).
+- **Azioni** (`lua/ddp_actions.lua`): ordini di lavoro nel formato della libreria ordini di DFHack (`workorder`), annullamento ordini, pausa, link magazzino → laboratorio.
+- L'autopilota annulla **solo gli ordini creati da lui**: li registra in `data/dfhack_orders.json`, per salvataggio e fortezza. Se l'id di un ordine passa a un altro lavoro (es. caricando un salvataggio vecchio) l'ordine non è più considerato suo.
+- La **pausa d'emergenza** viene eseguita anche in dry-run: è innocua ed è la regola di base.
+- Non ancora supportati su DFHack (l'autopilota li salta): espansione dei magazzini, blueprint Quickfort (Step 2C).
 - Letti: scorte (oggetti utilizzabili: no proibiti, marci, del mercante, già costruiti), barre per materiale, oggetti a terra fuori dai magazzini, ordini di lavoro (anche `CustomReaction` per la birra), magazzini (caselle occupate/totali, categoria, link), laboratori e fornaci costruiti, cittadini (professione, stress, lavoro attuale, mansioni, abilità), minacce visibili (invasori, grandi pericoli, mercanti).
 - **Zone per i blueprint**: le zone attività il cui nome inizia con `DDP` (es. `DDP Z1 Camere` → zona `Z1` "Camere"). Le altre zone sono ignorate.
 - Ogni sezione dell'exporter è isolata: se una fallisce (es. campo rinominato in una versione di DFHack) compare in `errors` e il resto viene letto comunque.
-- Verificato solo contro un ambiente DFHack simulato (`tests/fixtures/fake_dfhack.lua`), riferimento API DFHack 53.17-r1. Da confermare su una partita vera.
+- Lettura verificata su DFHack 53.17-r1 / DF 0.53.17 (Steam). Azioni verificate contro un ambiente DFHack simulato.
 
 ## Sicurezza del design
 

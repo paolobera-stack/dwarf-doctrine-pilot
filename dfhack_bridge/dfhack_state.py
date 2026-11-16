@@ -43,6 +43,27 @@ STOCK_ITEMS: dict[str, tuple[str, ...]] = {
 BAR_ITEMS = {"iron_bars": "INORGANIC:IRON"}
 ITEM_NAME_BY_TYPE = {t: item for item, types in STOCK_ITEMS.items() for t in types}
 
+# DDP job -> manager order in the format of DFHack's order library (data/orders/*.json).
+# Furniture that can be either: wood for beds/barrels/bins, rock for the mason's goods.
+ORDER_SPECS: dict[str, dict[str, Any]] = {
+    "BrewDrink": {"job": "CustomReaction", "reaction": "BREW_DRINK_FROM_PLANT"},
+    "PrepareMeal": {"job": "PrepareMeal", "meal_ingredients": 2},  # easy meal: 2 ingredients
+    "ConstructBed": {"job": "ConstructBed", "material_category": ["wood"]},
+    "MakeBarrel": {"job": "MakeBarrel", "material_category": ["wood"]},
+    "MakeBin": {"job": "ConstructBin", "material_category": ["wood"]},
+    "MakeTable": {"job": "ConstructTable", "material": "INORGANIC"},
+    "MakeChair": {"job": "ConstructThrone", "material": "INORGANIC"},
+    "ConstructDoor": {"job": "ConstructDoor", "material": "INORGANIC"},
+    "ConstructBlocks": {"job": "ConstructBlocks", "material": "INORGANIC"},
+    "SmeltIron": {"job": "SmeltOre", "material": "INORGANIC:HEMATITE"},
+}
+
+
+def fortress_key(raw: dict[str, Any]) -> str:
+    """Identifies one fortress across sessions: save folder + site id."""
+    return f"{raw.get('save_dir') or '?'}#{raw.get('site_id', -1)}"
+
+
 # DF job (job_type, reaction) -> DDP job; DDP job -> stock item it produces.
 DF_JOBS: dict[tuple[str, str], str] = {
     ("CustomReaction", "BREW_DRINK_FROM_PLANT"): "BrewDrink",

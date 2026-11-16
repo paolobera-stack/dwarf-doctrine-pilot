@@ -85,6 +85,7 @@ for _, u in ipairs(others) do active[#active + 1] = u end
 df = setmetatable({global = {
     cur_year = 105, cur_year_tick = 1200 * 40 + 17, pause_state = false,
     world = {
+        cur_savegame = {save_dir = 'region1'},
         items = {other = other},
         buildings = {other = {
             STOCKPILE = {food_pile, drink_pile, wood_pile},
@@ -112,7 +113,7 @@ dfhack = {
     getDFHackVersion = function() return '53.17-r1' end,
     getDFVersion = function() return 'v0.53.17 linux64' end,
     translation = {translateName = function(n) return n end},
-    world = {getCurrentSite = function() return {name = 'Fakefort "Test"'} end},
+    world = {getCurrentSite = function() return {id = 42, name = 'Fakefort "Test"'} end},
     matinfo = {decode = function(it) return {getToken = function() return it.mat end} end},
     buildings = {containsTile = function(b, x, y) return not (b.id == 100 and x == 2 and y == 1) end},
     job = {getName = function(j) return j.name end},

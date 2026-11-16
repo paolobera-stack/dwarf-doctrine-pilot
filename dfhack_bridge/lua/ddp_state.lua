@@ -108,6 +108,8 @@ function sections.meta()
     state.paused = df.global.pause_state and true or false
     local site = dfhack.world.getCurrentSite()
     state.fortress_name = site and utf(dfhack.translation.translateName(site.name, true)) or ''
+    state.site_id = site and site.id or -1
+    state.save_dir = utf(W.cur_savegame.save_dir)
 end
 
 function sections.stocks()

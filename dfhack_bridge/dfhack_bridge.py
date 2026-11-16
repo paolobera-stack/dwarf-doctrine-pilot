@@ -1,15 +1,14 @@
-"""Real DFHack bridge — READ-ONLY (Step 2A).
+"""Real DFHack bridge.
 
-Transport: `dfhack-run` (ships with DFHack, next to the game executable) runs
-`lua/ddp_state.lua` inside the running game; the script writes one raw JSON
-document to a temp file that `dfhack_state.raw_to_state` maps onto FortressState.
+Transport: `dfhack-run` (ships with DFHack) runs our Lua scripts inside the game.
+Payloads and results travel through temp JSON files, never the console, so DFHack
+diagnostics on stdout can't corrupt them.
 
-Write commands map onto native DFHack tools and are still disabled until the
-read side is verified against a live game:
+  reading -> `lua/ddp_state.lua`, mapped onto FortressState by `dfhack_state.raw_to_state`
+  actions -> `lua/ddp_actions.lua` (manager orders, pause, stockpile links)
 
-  create_work_order  -> `workorder '{"job":"BrewDrink","amount_total":10}'`
-  enqueue_blueprint  -> `quickfort run <file> -n /<label> --cursor x,y,z`
-  set_paused         -> lua `df.global.pause_state = true|false`
+Orders created by the autopilot are remembered in a local ledger (per fortress),
+so it only ever cancels its own orders and never the player's.
 """
 
 from __future__ import annotations
@@ -24,11 +23,12 @@ from pathlib import Path
 from typing import Any
 
 from dfhack_bridge.base import BridgeError, FortressBridge
-from dfhack_bridge.dfhack_state import RawStateError, raw_to_state
-from dfhack_bridge.protocol import FortressState, Zone
+from dfhack_bridge.dfhack_state import ORDER_SPECS, WORKSHOP_NAMES, RawStateError, fortress_key, raw_to_state
+from dfhack_bridge.protocol import FortressState
 
 LUA_DIR = Path(__file__).resolve().parent / "lua"
 STATE_SCRIPT = LUA_DIR / "ddp_state.lua"
+ACTIONS_SCRIPT = LUA_DIR / "ddp_actions.lua"
 # Don't flash a console window every poll when the GUI runs without one (pythonw).
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -41,15 +41,54 @@ def find_dfhack_run(explicit: str | None = None) -> str:
     return shutil.which("dfhack-run") or shutil.which("dfhack-run.exe") or "dfhack-run"
 
 
+class OrderLedger:
+    """{fortress key: {order id: {"job": DF job_type, "source": ...}}} persisted as JSON."""
+
+    def __init__(self, path: Path | None):
+        self.path = path
+        self.data: dict[str, dict[str, dict[str, str]]] = {}
+        if path and path.exists():
+            try:
+                self.data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                self.data = {}
+
+    def get(self, fort: str, order_id: int) -> dict[str, str] | None:
+        return self.data.get(fort, {}).get(str(order_id))
+
+    def add(self, fort: str, order_id: int, job_type: str, source: str) -> None:
+        self.data.setdefault(fort, {})[str(order_id)] = {"job": job_type, "source": source}
+        self._save()
+
+    def remove(self, fort: str, order_id: int) -> None:
+        if self.data.get(fort, {}).pop(str(order_id), None) is not None:
+            self._save()
+
+    def prune(self, fort: str, live: dict[int, str]) -> None:
+        """Forget orders that are gone, or whose id now belongs to a different job."""
+        mine = self.data.get(fort, {})
+        stale = [k for k, v in mine.items() if live.get(int(k)) != v["job"]]
+        for k in stale:
+            del mine[k]
+        if stale:
+            self._save()
+
+    def _save(self) -> None:
+        if self.path:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(self.data, indent=1), encoding="utf-8")
+
+
 class DFHackBridge(FortressBridge):
     name = "dfhack"
-    read_only = True
+    unsupported = frozenset({"act.expand_stockpile", "act.enqueue_blueprint"})
 
     def __init__(self, dfhack_run: str | None = None, blueprints_dir: Path | None = None,
-                 timeout: float = 10.0):
+                 timeout: float = 10.0, ledger_path: Path | None = None):
         self.dfhack_run = find_dfhack_run(dfhack_run)
         self.blueprints_dir = blueprints_dir or Path(__file__).resolve().parent.parent / "blueprints"
         self.timeout = timeout
+        self.ledger = OrderLedger(ledger_path)
         self.last_raw: dict[str, Any] | None = None
         self.last_elapsed_ms: int = 0
 
@@ -58,38 +97,40 @@ class DFHackBridge(FortressBridge):
         cmd = [self.dfhack_run, "lua", "-f", str(STATE_SCRIPT)]
         return cmd + [str(out_path)] if out_path else cmd
 
-    def cmd_create_work_order(self, job: str, quantity: int) -> list[str]:
-        return [self.dfhack_run, "workorder", json.dumps({"job": job, "amount_total": quantity})]
+    def cmd_action(self, payload_path: Path, result_path: Path) -> list[str]:
+        return [self.dfhack_run, "lua", "-f", str(ACTIONS_SCRIPT), str(payload_path), str(result_path)]
 
-    def cmd_enqueue_blueprint(self, blueprint_file: str, label: str, zone: Zone) -> list[str]:
-        return [
-            self.dfhack_run, "quickfort", "run", str(self.blueprints_dir / blueprint_file),
-            "-n", f"/{label}", "--cursor", f"{zone.x},{zone.y},{zone.z}",
-        ]
+    # --- transport --------------------------------------------------------------
+    def _run(self, cmd: list[str], what: str) -> str:
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=self.timeout,
+                                  errors="replace", creationflags=NO_WINDOW)
+        except FileNotFoundError as e:
+            raise BridgeError(f"dfhack-run not found ({self.dfhack_run}); set DDP_DFHACK_RUN") from e
+        except subprocess.TimeoutExpired as e:
+            raise BridgeError(f"dfhack-run timed out after {self.timeout}s") from e
+        console = (proc.stdout + proc.stderr).strip()
+        if proc.returncode != 0:
+            raise BridgeError(f"{what} failed (exit {proc.returncode}): {console[-500:] or 'no output'}")
+        return console
 
-    def cmd_set_paused(self, paused: bool) -> list[str]:
-        return [self.dfhack_run, "lua", f"df.global.pause_state={'true' if paused else 'false'}"]
+    @staticmethod
+    def _temp_path(prefix: str) -> Path:
+        fd, name = tempfile.mkstemp(prefix=prefix, suffix=".json")
+        os.close(fd)
+        path = Path(name)
+        path.unlink()
+        return path
 
     # --- reading --------------------------------------------------------------
     def read_raw(self) -> dict[str, Any]:
         """Run the exporter and return its raw JSON document."""
-        fd, name = tempfile.mkstemp(prefix="ddp_state_", suffix=".json")
-        os.close(fd)
-        out = Path(name)
-        out.unlink()
+        out = self._temp_path("ddp_state_")
         started = time.monotonic()
         try:
-            try:
-                proc = subprocess.run(self.cmd_get_state(out), capture_output=True, text=True,
-                                      timeout=self.timeout, errors="replace",
-                                      creationflags=NO_WINDOW)
-            except FileNotFoundError as e:
-                raise BridgeError(f"dfhack-run not found ({self.dfhack_run}); set DDP_DFHACK_RUN") from e
-            except subprocess.TimeoutExpired as e:
-                raise BridgeError(f"dfhack-run timed out after {self.timeout}s") from e
-            console = (proc.stdout + proc.stderr).strip()
-            if proc.returncode != 0 or not out.exists():
-                raise BridgeError(f"ddp_state.lua failed (exit {proc.returncode}): {console[-500:] or 'no output'}")
+            console = self._run(self.cmd_get_state(out), "ddp_state.lua")
+            if not out.exists():
+                raise BridgeError(f"ddp_state.lua failed: {console[-500:] or 'no output'}")
             raw = json.loads(out.read_text(encoding="utf-8"))
         finally:
             out.unlink(missing_ok=True)
@@ -100,28 +141,73 @@ class DFHackBridge(FortressBridge):
     def get_state(self) -> FortressState:
         raw = self.read_raw()
         try:
-            return raw_to_state(raw)
+            state = raw_to_state(raw)
         except RawStateError as e:
             raise BridgeError(str(e)) from e
+        fort = fortress_key(raw)
+        if "orders" in raw:  # don't forget our orders when only that section failed
+            self.ledger.prune(fort, {o["id"]: o.get("job_type", "") for o in raw["orders"]})
+        for o in state.work_orders:
+            entry = self.ledger.get(fort, o.id)
+            if entry:
+                o.source = entry["source"]
+        return state
 
-    # --- writing (disabled) ---------------------------------------------------
-    def _read_only(self) -> BridgeError:
-        return BridgeError("DFHack bridge is read-only for now: actions are planned (dry-run) but not executed")
+    # --- actions ----------------------------------------------------------------
+    def run_action(self, action: str, **params: Any) -> dict[str, Any]:
+        payload, result = self._temp_path("ddp_action_"), self._temp_path("ddp_result_")
+        try:
+            payload.write_text(json.dumps({"action": action, **params}), encoding="utf-8")
+            console = self._run(self.cmd_action(payload, result), f"ddp_actions.lua {action}")
+            if not result.exists():
+                raise BridgeError(f"ddp_actions.lua {action}: no result ({console[-300:] or 'no output'})")
+            res = json.loads(result.read_text(encoding="utf-8"))
+        finally:
+            payload.unlink(missing_ok=True)
+            result.unlink(missing_ok=True)
+        if not res.get("ok"):
+            raise BridgeError(f"{action}: {res.get('error', 'unknown error')}")
+        return res
+
+    def _fort(self) -> str:
+        return fortress_key(self.last_raw or self.read_raw())
 
     def create_work_order(self, job: str, quantity: int, *, source: str = "autopilot") -> int:
-        raise self._read_only()
+        spec = ORDER_SPECS.get(job)
+        if spec is None:
+            raise BridgeError(f"no DFHack order for job {job!r}")
+        fort = self._fort()
+        order_id = int(self.run_action("create_order", order=spec, amount=int(quantity))["order_id"])
+        self.ledger.add(fort, order_id, spec["job"], source)
+        return order_id
 
     def cancel_work_order(self, order_id: int) -> None:
-        raise self._read_only()
-
-    def expand_stockpile(self, stockpile_id: int, cells: int) -> None:
-        raise self._read_only()
+        fort = self._fort()
+        entry = self.ledger.get(fort, order_id)
+        if entry is None:
+            raise BridgeError(f"order {order_id} was not created by the autopilot: not cancelling it")
+        self.run_action("cancel_order", order_id=order_id, job_type=entry["job"])
+        self.ledger.remove(fort, order_id)
 
     def link_stockpile(self, stockpile_id: int, workshop: str) -> None:
-        raise self._read_only()
-
-    def enqueue_blueprint(self, queue_id: str, blueprint: str, zone_id: str) -> None:
-        raise self._read_only()
+        raw = self.last_raw or self.read_raw()
+        pile = next((p for p in raw.get("stockpiles", []) if p["id"] == stockpile_id), None)
+        if pile is None:
+            raise BridgeError(f"stockpile {stockpile_id} not found")
+        linked = set(pile.get("give_to_workshops", []))
+        candidates = [w["id"] for w in raw.get("workshops", [])
+                      if w.get("active") and WORKSHOP_NAMES.get(w.get("type", ""), w.get("type")) == workshop]
+        if not candidates:
+            raise BridgeError(f"no built {workshop} workshop")
+        if linked & set(candidates):
+            return
+        self.run_action("link_stockpile", stockpile_id=stockpile_id, workshop_id=candidates[0])
 
     def set_paused(self, paused: bool) -> None:
-        raise self._read_only()
+        self.run_action("set_paused", paused=paused)
+
+    def expand_stockpile(self, stockpile_id: int, cells: int) -> None:
+        raise BridgeError("expanding stockpiles is not supported on DFHack yet")
+
+    def enqueue_blueprint(self, queue_id: str, blueprint: str, zone_id: str) -> None:
+        raise BridgeError("Quickfort blueprints are not supported on DFHack yet (Step 2C)")

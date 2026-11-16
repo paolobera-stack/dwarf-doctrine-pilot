@@ -3,7 +3,7 @@
     python main.py                  # GUI + embedded mock fortress (if no mock server is running)
     python main.py --lang en        # English UI
     python main.py --dry-run        # plan actions without executing them
-    DDP_BRIDGE=dfhack python main.py  # live DFHack, read-only (forced dry-run)
+    DDP_BRIDGE=dfhack python main.py  # live DFHack, starts in dry-run (untick it to act)
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def build_bridge(cfg: AppConfig, embedded: bool, seed: int, speed: float):
     if cfg.bridge == "dfhack":
         from dfhack_bridge.dfhack_bridge import DFHackBridge
 
-        return DFHackBridge(blueprints_dir=cfg.blueprints_dir), None
+        return DFHackBridge(blueprints_dir=cfg.blueprints_dir, ledger_path=cfg.data_dir / "dfhack_orders.json"), None
     from dfhack_bridge.mock_bridge import MockBridge
     from dfhack_bridge.mock_server import FortressSim, MockServer
 
@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     bridge, server = build_bridge(cfg, args.embedded, args.seed, args.speed)
     catalog = load_catalog()
     advisor = make_advisor(cfg.gemini_api_key, cfg.gemini_model, list(catalog))
-    win = MainWindow(bridge, DoctrineStore(cfg.data_dir), advisor, dry_run=args.dry_run)
+    win = MainWindow(bridge, DoctrineStore(cfg.data_dir), advisor, dry_run=args.dry_run or bridge.name == "dfhack")
     win.tabs.setCurrentIndex(args.tab)
     win.show()
 

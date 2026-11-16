@@ -13,6 +13,8 @@ class FortressBridge(ABC):
     """Everything the autopilot and the GUI may read from / do to the game."""
 
     name: str = "bridge"
+    # Action keys (e.g. "act.expand_stockpile") this backend can't perform; the autopilot skips them.
+    unsupported: frozenset[str] = frozenset()
 
     @abstractmethod
     def get_state(self) -> FortressState: ...
