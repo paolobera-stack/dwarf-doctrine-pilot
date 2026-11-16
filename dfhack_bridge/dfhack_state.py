@@ -10,8 +10,10 @@ import re
 import zlib
 from typing import Any
 
+from blueprints import Section
 from dfhack_bridge.protocol import (
     DAYS_PER_YEAR,
+    BlueprintJob,
     Dwarf,
     FortressState,
     GameDate,
@@ -144,6 +146,52 @@ def parse_zone_name(name: str) -> tuple[str, str] | None:
     if not m:
         return None
     return m.group(1).upper(), (m.group(2) or m.group(1)).strip()
+
+
+def find_raw_zone(raw: dict[str, Any], zone_id: str) -> dict[str, Any] | None:
+    for z in raw.get("zones") or []:
+        parsed = parse_zone_name(z.get("name", ""))
+        if parsed and parsed[0] == zone_id.upper():
+            return z
+    return None
+
+
+def blueprint_job(queue_id: str, entry: dict[str, Any], zone: dict[str, Any] | None,
+                  sections: list[Section]) -> BlueprintJob:
+    """Progress of a blueprint the autopilot applied, measured on the zone's tiles and buildings.
+
+    entry (ledger): blueprint, zone_id, x/y/z (top-left of the blueprint), phase dig|build|done.
+    With a build/place phase, digging is the first half of the progress bar.
+    """
+    job = BlueprintJob(id=queue_id, blueprint=entry["blueprint"], zone_id=entry["zone_id"])
+    phase = entry.get("phase", "dig")
+    if phase == "done":
+        job.status, job.progress = "done", 1.0
+        return job
+    two_phase = any(s.mode in ("build", "place") for s in sections)
+    if zone is None or "tiles" not in zone:  # zone removed or not readable: keep the phase, no measure
+        job.status = "digging" if phase == "dig" else "building"
+        job.progress = float(entry.get("progress", 0.0))
+        return job
+    ox, oy = entry["x"] - zone["x1"], entry["y"] - zone["y1"]
+    if phase == "dig":
+        cells = [(x, y) for s in sections if s.mode == "dig" for x, y, _ in s.cells]
+        rows = zone["tiles"]
+        dug = sum(1 for x, y in cells
+                  if 0 <= oy + y < len(rows) and 0 <= ox + x < len(rows[oy + y]) and rows[oy + y][ox + x] == ".")
+        frac = dug / len(cells) if cells else 1.0
+        if not two_phase:
+            job.status, job.progress = ("done" if frac >= 1 else "digging"), frac
+        else:
+            job.status, job.progress, job.awaiting_build = "digging", 0.5 * frac, frac >= 1
+        return job
+    expected = sum(len(s.cells) for s in sections if s.mode == "build")
+    w, h = entry.get("w", 0), entry.get("h", 0)
+    built = sum(1 for b in zone.get("buildings", [])
+                if b.get("built") and entry["x"] <= b["x"] < entry["x"] + w and entry["y"] <= b["y"] < entry["y"] + h)
+    frac = min(1.0, built / expected) if expected else 1.0
+    job.status, job.progress = ("done" if frac >= 1 else "building"), 0.5 + 0.5 * frac
+    return job
 
 
 def raw_to_state(raw: dict[str, Any]) -> FortressState:

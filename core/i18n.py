@@ -104,6 +104,7 @@ _STRINGS: dict[str, dict[str, str]] = {
     "bp.blocked": {"it": "Bloccato", "en": "Blocked"},
     "bp.queued": {"it": "In coda", "en": "Queued"},
     "bp.digging": {"it": "Scavo", "en": "Digging"},
+    "bp.dug": {"it": "Scavato, costruzione in attesa", "en": "Dug, build pending"},
     "bp.building": {"it": "Costruzione", "en": "Building"},
     "bp.done": {"it": "Completato", "en": "Completed"},
     "bp.missing_zone": {"it": "Zona mancante", "en": "Missing zone"},
@@ -178,6 +179,10 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "Expanded stockpile {name} by {cells} cells ({fill}% > {max}%)",
     },
     "act.link_stockpile": {"it": "Collegato magazzino {name} → {workshop}", "en": "Linked stockpile {name} → {workshop}"},
+    "act.advance_blueprint": {
+        "it": "Scavo finito in zona {zone}: avviata la costruzione di {id}",
+        "en": "Digging done in zone {zone}: started building {id}",
+    },
     "act.enqueue_blueprint": {
         "it": "Accodato blueprint {blueprint} in zona {zone} ({id})",
         "en": "Queued blueprint {blueprint} in zone {zone} ({id})",

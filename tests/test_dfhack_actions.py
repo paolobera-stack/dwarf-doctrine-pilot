@@ -30,7 +30,16 @@ local function order(fields)
 end
 W.manager_orders.all:insert('#', order{id = 7, job_type = 'ConstructBed'})
 created = {}
+quickfort_calls = {}
 function reqscript(name)
+    if name == 'quickfort' then
+        return {apply_blueprint = function(params)
+            quickfort_calls[#quickfort_calls + 1] = params
+            local n = 0
+            for _, row in pairs(params.data[0]) do for _ in pairs(row) do n = n + 1 end end
+            return {dig_designated = {label = 'Tiles designated for digging', value = n, always = true}}
+        end}
+    end
     assert(name == 'workorder')
     return {create_orders = function(list, quiet)
         local it = list[1]
@@ -125,6 +134,15 @@ def test_lua_pause_and_link(lua):
     assert lua.rt.eval("#links.pile") == 1 and lua.rt.eval("#links.ws") == 1
     assert not lua({"action": "link_stockpile", "stockpile_id": 100, "workshop_id": 99})["ok"]
     assert "unknown action" in lua({"action": "explode"})["error"]
+
+
+def test_lua_apply_blueprint(lua):
+    res = lua({"action": "apply_blueprint", "mode": "dig", "pos": {"x": 30, "y": 40, "z": 3},
+               "cells": [{"x": 0, "y": 0, "text": "d"}, {"x": 2, "y": 1, "text": "d"}]})
+    assert res == {"ok": True, "stats": {"dig_designated": {"label": "Tiles designated for digging", "value": 2}}}
+    call = lua.rt.eval("quickfort_calls[1]")
+    assert (call.mode, call.pos.x, call.pos.z, call.dry_run) == ("dig", 30, 3, False)
+    assert call.data[0][0][0] == "d" and call.data[0][1][2] == "d" and call.data[0][1][0] is None
 
 
 # --------------------------------------------------------------------- bridge (subprocess faked)

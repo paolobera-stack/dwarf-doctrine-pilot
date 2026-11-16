@@ -136,8 +136,8 @@ class FortressSim:
         ]
         self.workshops = [Workshop(name=n) for n in ("Carpenter", "Mason", "Still", "Kitchen")]
         self.zones = [
-            Zone(id="Z1", name="Ala dormitori", x=40, y=60, z=-3, w=11, h=7),
-            Zone(id="Z2", name="Distretto laboratori", x=55, y=60, z=-3, w=11, h=5),
+            Zone(id="Z1", name="Ala dormitori", x=40, y=60, z=-3, w=11, h=9),
+            Zone(id="Z2", name="Distretto laboratori", x=55, y=60, z=-3, w=11, h=7),
             Zone(id="Z3", name="Sala comune", x=40, y=70, z=-3, w=9, h=7),
             Zone(id="Z4", name="Riserva magazzini", x=55, y=70, z=-4, w=10, h=6),
         ]

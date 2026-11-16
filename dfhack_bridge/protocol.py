@@ -127,6 +127,8 @@ class BlueprintJob(_State):
     zone_id: str
     status: BlueprintStatus = "queued"
     progress: float = 0.0
+    # Digging finished; the bridge waits for the autopilot to apply the build/place phase.
+    awaiting_build: bool = False
 
 
 class Dwarf(_State):

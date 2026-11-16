@@ -1,16 +1,20 @@
-#dig label(dig) start(6;4;center of corridor) Six 3x3 bedrooms off a central corridor
+#dig label(dig) start(1;1) Six 3x3 bedrooms with doors onto a central corridor
 d,d,d,`,d,d,d,`,d,d,d
 d,d,d,`,d,d,d,`,d,d,d
 d,d,d,`,d,d,d,`,d,d,d
+`,d,`,`,`,d,`,`,`,d,`
 d,d,d,d,d,d,d,d,d,d,d
+`,d,`,`,`,d,`,`,`,d,`
 d,d,d,`,d,d,d,`,d,d,d
 d,d,d,`,d,d,d,`,d,d,d
 d,d,d,`,d,d,d,`,d,d,d
-#build label(furnish) start(6;4) Beds and doors
-b,`,`,`,b,`,`,`,b,`,`
+#build label(furnish) start(1;1) Beds and doors
+`,b,`,`,`,b,`,`,`,b,`
+`,`,`,`,`,`,`,`,`,`,`
 `,`,`,`,`,`,`,`,`,`,`
 `,d,`,`,`,d,`,`,`,d,`
 `,`,`,`,`,`,`,`,`,`,`
 `,d,`,`,`,d,`,`,`,d,`
 `,`,`,`,`,`,`,`,`,`,`
-b,`,`,`,b,`,`,`,b,`,`
+`,`,`,`,`,`,`,`,`,`,`
+`,b,`,`,`,b,`,`,`,b,`

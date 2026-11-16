@@ -2,16 +2,16 @@
   "bedrooms_3x3": {
     "file": "bedrooms_3x3.csv",
     "label": {"it": "Camere 3x3 (6 letti)", "en": "3x3 bedrooms (6 beds)"},
-    "size": [11, 7],
-    "dig_cells": 65,
+    "size": [11, 9],
+    "dig_cells": 71,
     "build_materials": {"beds": 6, "doors": 6},
     "effects": {"bedrooms": 6}
   },
   "workshops_core": {
     "file": "workshops_core.csv",
     "label": {"it": "Laboratori base", "en": "Core workshops"},
-    "size": [11, 5],
-    "dig_cells": 55,
+    "size": [11, 7],
+    "dig_cells": 77,
     "build_materials": {"blocks": 20, "wood": 8},
     "effects": {"workshops": ["Carpenter", "Mason", "Still", "Kitchen"]}
   },

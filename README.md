@@ -34,7 +34,7 @@ Chat con Gemini: imposta `GEMINI_API_KEY` (o `GOOGLE_API_KEY`) nell'ambiente opp
 | `DDP_LANG` | `it` | `it` / `en` |
 | `GEMINI_API_KEY` | — | chiave Gemini (Free Tier) |
 | `DDP_GEMINI_MODEL` | `gemini-3.5-flash` | `gemini-2.5-flash` non è più disponibile per le chiavi nuove |
-| `DDP_BRIDGE` | `mock` | `mock` / `dfhack` (sola lettura, vedi sotto) |
+| `DDP_BRIDGE` | `mock` | `mock` / `dfhack` (vedi sotto) |
 | `DDP_DFHACK_RUN` | da `PATH` | percorso di `dfhack-run(.exe)`, nella cartella del gioco |
 | `DDP_MOCK_PORT` | `5577` | |
 | `DDP_DATA_DIR` | `./data` | dottrina approvata + storico versioni |
@@ -92,7 +92,12 @@ python main.py
 - **Azioni** (`lua/ddp_actions.lua`): ordini di lavoro nel formato della libreria ordini di DFHack (`workorder`), annullamento ordini, pausa, link magazzino → laboratorio.
 - L'autopilota annulla **solo gli ordini creati da lui**: li registra in `data/dfhack_orders.json`, per salvataggio e fortezza. Se l'id di un ordine passa a un altro lavoro (es. caricando un salvataggio vecchio) l'ordine non è più considerato suo.
 - La **pausa d'emergenza** viene eseguita anche in dry-run: è innocua ed è la regola di base.
-- Non ancora supportati su DFHack (l'autopilota li salta): espansione dei magazzini, blueprint Quickfort (Step 2C).
+- **Blueprint Quickfort** (Step 2C), in due fasi, ognuna è un'azione registrata nel log:
+  1. *scavo*: la sezione `#dig` viene designata a partire dall'angolo in alto a sinistra della zona `DDP` (il blueprint deve starci, altrimenti viene rifiutato);
+  2. *costruzione*: quando tutte le caselle da scavare sono aperte, vengono piazzate le sezioni `#build` (mobili, laboratori) e `#place` (magazzini).
+  L'avanzamento è misurato sulla mappa: caselle scavate (prima metà della barra) ed edifici completati (seconda metà). I blueprint avviati sono registrati in `data/dfhack_blueprints.json` per fortezza; una zona ospita un solo blueprint.
+- Misure minime delle zone: camere 11×9, laboratori 11×7, sala da pranzo 9×7, magazzini 10×6.
+- Non ancora supportati su DFHack (l'autopilota li salta): espansione dei magazzini.
 - Letti: scorte (oggetti utilizzabili: no proibiti, marci, del mercante, già costruiti), barre per materiale, oggetti a terra fuori dai magazzini, ordini di lavoro (anche `CustomReaction` per la birra), magazzini (caselle occupate/totali, categoria, link), laboratori e fornaci costruiti, cittadini (professione, stress, lavoro attuale, mansioni, abilità), minacce visibili (invasori, grandi pericoli, mercanti).
 - **Zone per i blueprint**: le zone attività il cui nome inizia con `DDP` (es. `DDP Z1 Camere` → zona `Z1` "Camere"). Le altre zone sono ignorate.
 - Ogni sezione dell'exporter è isolata: se una fallisce (es. campo rinominato in una versione di DFHack) compare in `errors` e il resto viene letto comunque.
@@ -108,5 +113,5 @@ python main.py
 
 ## Stato
 
-- DFHack: lettura implementata (Step 2A), da verificare in gioco. Azioni (ordini, pausa, Quickfort) nello step successivo.
+- DFHack: lettura (2A) e azioni (2B) verificate in gioco; Quickfort (2C) implementato, da verificare in gioco.
 - Il mock è un'approssimazione per sviluppare e dimostrare il flusso, non un modello fedele dell'economia di DF.

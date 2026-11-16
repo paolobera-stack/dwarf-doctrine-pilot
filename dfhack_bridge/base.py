@@ -36,6 +36,10 @@ class FortressBridge(ABC):
     def enqueue_blueprint(self, queue_id: str, blueprint: str, zone_id: str) -> None:
         """Queue a Quickfort blueprint inside a zone designated by the user."""
 
+    def advance_blueprint(self, queue_id: str) -> None:
+        """Apply the build/place phase of a blueprint whose digging is finished (BlueprintJob.awaiting_build)."""
+        raise BridgeError(f"{self.name} advances blueprints by itself")
+
     @abstractmethod
     def set_paused(self, paused: bool) -> None: ...
 

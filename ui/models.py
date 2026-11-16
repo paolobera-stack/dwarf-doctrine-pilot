@@ -208,13 +208,15 @@ def blueprint_rows(state: FortressState, doctrine: FortressDoctrine) -> list[dic
     for item in sorted(doctrine.blueprint_queue, key=lambda b: -b.priority):
         status, reasons = blueprint_readiness(item, state)
         live = next((b for b in state.blueprints if b.id == item.id), None)
+        if live and live.awaiting_build:
+            status = "dug"
         queued.add(item.id)
         rows.append({"id": item.id, "bp": item.blueprint, "zone": item.zone_id, "prio": item.priority,
                      "status": status, "progress": live.progress if live else 0.0, "item": item, "reasons": reasons})
     for live in state.blueprints:  # jobs in game but no longer in the doctrine
         if live.id not in queued:
             rows.append({"id": live.id, "bp": live.blueprint, "zone": live.zone_id, "prio": None,
-                         "status": live.status, "progress": live.progress, "item": None, "reasons": []})
+                         "status": "dug" if live.awaiting_build else live.status, "progress": live.progress, "item": None, "reasons": []})
     return rows
 
 

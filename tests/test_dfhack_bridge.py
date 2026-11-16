@@ -138,3 +138,9 @@ def test_bridge_missing_executable():
 def test_dfhack_run_env_override(monkeypatch):
     monkeypatch.setenv("DDP_DFHACK_RUN", r"C:\Games\DF\dfhack-run.exe")
     assert DFHackBridge().dfhack_run == r"C:\Games\DF\dfhack-run.exe"
+
+
+def test_exporter_zone_tiles_and_buildings():
+    z = run_exporter()["zones"][0]
+    assert z["tiles"] == ["...D######"] * 5  # dug, designated, solid
+    assert [(b["id"], b["type"], b["built"]) for b in z["buildings"]] == [(300, "Bed", True), (301, "Door", False)]
