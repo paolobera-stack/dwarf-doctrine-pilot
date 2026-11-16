@@ -29,6 +29,8 @@ from dfhack_bridge.protocol import FortressState, Zone
 
 LUA_DIR = Path(__file__).resolve().parent / "lua"
 STATE_SCRIPT = LUA_DIR / "ddp_state.lua"
+# Don't flash a console window every poll when the GUI runs without one (pythonw).
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def find_dfhack_run(explicit: str | None = None) -> str:
@@ -79,7 +81,8 @@ class DFHackBridge(FortressBridge):
         try:
             try:
                 proc = subprocess.run(self.cmd_get_state(out), capture_output=True, text=True,
-                                      timeout=self.timeout, errors="replace")
+                                      timeout=self.timeout, errors="replace",
+                                      creationflags=NO_WINDOW)
             except FileNotFoundError as e:
                 raise BridgeError(f"dfhack-run not found ({self.dfhack_run}); set DDP_DFHACK_RUN") from e
             except subprocess.TimeoutExpired as e:
