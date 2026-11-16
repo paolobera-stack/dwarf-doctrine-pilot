@@ -204,10 +204,12 @@ class DoctrinePanel(QWidget):
         self.send_btn.setEnabled(not busy)
         self.chat_input.setEnabled(not busy)
         if busy:
-            self.chat_status.setText(tr("chat.thinking"))
+            self.set_status("chat.thinking")
 
-    def set_status(self, text: str) -> None:
-        self.chat_status.setText(text)
+    def set_status(self, key: str | None, **kwargs) -> None:
+        """Status is kept as an i18n key so a language switch re-renders it."""
+        self._status = (key, kwargs) if key else None
+        self.chat_status.setText(tr(key, **kwargs) if key else "")
 
     # ------------------------------------------------------------------ proposal
     def show_proposal(self, entries: list[DiffEntry], old_version: int, new_version: int) -> None:
@@ -257,6 +259,8 @@ class DoctrinePanel(QWidget):
 
     # ------------------------------------------------------------------ i18n
     def retranslate(self) -> None:
+        if getattr(self, "_status", None):
+            self.set_status(self._status[0], **self._status[1])
         self.title.setText(tr("panel.title"))
         self.modules_label.setText(tr("panel.modules"))
         for m, cb in self.switches.items():

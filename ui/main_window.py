@@ -289,9 +289,8 @@ class MainWindow(QMainWindow):
         self.history += [ChatTurn("user", user_text), ChatTurn("model", reply.reply)]
         self.panel.append_chat("model", reply.reply)
         b = self.doctrine.gemini
-        status = tr("chat.budget", tokens=result.payload_tokens, max=b.max_payload_tokens,
-                    day=self.advisor.budget.used_today(), day_max=b.max_requests_per_day)
-        self.panel.set_status(status)
+        self.panel.set_status("chat.budget", tokens=result.payload_tokens, max=b.max_payload_tokens,
+                              day=self.advisor.budget.used_today(), day_max=b.max_requests_per_day)
         if reply.proposal is None or reply.proposal.is_empty():
             return
         try:

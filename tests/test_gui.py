@@ -89,3 +89,15 @@ def test_english_switch(window):
     assert win.panel.approve_btn.text() == "Approve & Automate"
     assert win.stock_table.model.headerData(1, __import__("PySide6.QtCore").QtCore.Qt.Orientation.Horizontal) \
         == "Current"
+
+
+def test_chat_status_retranslates(qtbot):
+    from ui.doctrine_panel import DoctrinePanel
+
+    panel = DoctrinePanel()
+    qtbot.addWidget(panel)
+    panel.set_status("chat.budget", tokens=10, max=2000, day=1, day_max=100)
+    it = panel.chat_status.text()
+    i18n.set_language("en")
+    panel.retranslate()
+    assert panel.chat_status.text() != it
